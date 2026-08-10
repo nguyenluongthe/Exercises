@@ -25,7 +25,8 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{t('login').toUpperCase()}</Text>
+      <Text style={styles.brandName}>NENY FETNESS</Text>
+<Text style={styles.title}>{t('login').toUpperCase()}</Text>
 
       <TextInput
         style={styles.input} placeholder={t('email')} placeholderTextColor="#5A6690"
@@ -59,4 +60,8 @@ const styles = StyleSheet.create({
   buttonText: { color: '#12172B', fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', fontSize: 14 },
   error: { color: '#FF7A7A', marginBottom: 8, textAlign: 'center' },
   link: { color: '#9AA3C7', textAlign: 'center', marginTop: 20, fontSize: 14 },
+  brandName: {
+  fontSize: 32, fontWeight: '900', color: '#FF5A1F',
+  textAlign: 'center', letterSpacing: 2, marginBottom: 4,
+},
 });

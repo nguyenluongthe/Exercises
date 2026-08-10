@@ -12,7 +12,10 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     name = Column(String, nullable=True)
+    role = Column(String, default="user", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Favorite(Base):
     __tablename__ = "favorites"
 
@@ -33,3 +36,11 @@ class WorkoutLog(Base):
     sets = Column(Integer, nullable=False)
     reps = Column(Integer, nullable=False)
     logged_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SearchLog(Base):
+    __tablename__ = "search_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    query_text = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

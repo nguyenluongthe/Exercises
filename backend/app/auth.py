@@ -53,3 +53,11 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None:
         raise credentials_exception
     return user
+def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Giống get_current_user, nhưng chặn luôn nếu không phải admin."""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chỉ quản trị viên mới có quyền truy cập chức năng này.",
+        )
+    return current_user

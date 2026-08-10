@@ -72,12 +72,7 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>{t('appTitle')}</Text>
-        <Pressable onPress={() => navigation.navigate('Profile')}>
-          <Text style={styles.profileLink}>{t('profile')}</Text>
-        </Pressable>
-      </View>
+      <Text style={styles.title}>{t('inputPlaceholder')}</Text>
 
       <TextInput
         style={styles.input}
@@ -86,7 +81,7 @@ export default function HomeScreen({ navigation }) {
         value={description}
         onChangeText={setDescription}
       />
-      <Text style={styles.hintText}>{t('englishOnlyHint')}</Text>
+      
 
       <Pressable style={styles.button} onPress={handlePress} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? t('loading') : t('getSuggestions')}</Text>

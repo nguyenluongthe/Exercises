@@ -3,13 +3,15 @@ FastAPI Backend — Hệ thống AI Gợi ý Bài tập Thể dục Cá nhân h�
 Endpoints: /predict (phân loại nhóm cơ), /recommend (gợi ý bài tập), /exercises (tra cứu dữ liệu).
 """
 from app.database import engine, Base
-from app import auth_routes, user_routes
+from app import auth_routes, user_routes, admin_routes
 import logging
 from contextlib import asynccontextmanager
-
-from fastapi import FastAPI, HTTPException, Query
+from sqlalchemy.orm import Session
+from app.database import get_db
+from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.docs import get_swagger_ui_html
 from app import config
 from app.ml_service import ml_service
 from app.schemas import (
@@ -34,17 +36,22 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Fitness Exercise Recommendation API",
+    title="Neny Fetness API",
     description=(
-        "API phục vụ hệ thống AI gợi ý bài tập thể dục cá nhân hóa. "
+        "API phục vụ hệ thống AI gợi ý bài tập thể dục cá nhân hóa **Neny Fetness**. "
         "Sử dụng TF-IDF + Logistic Regression để phân loại nhóm cơ, "
         "và TF-IDF + Cosine Similarity để gợi ý bài tập tương tự."
     ),
     version="1.0.0",
     lifespan=lifespan,
+    docs_url=None,  # Tắt docs mặc định, thay bằng bản tùy chỉnh có logo bên dưới
 )
+
+# Cho phép truy cập file tĩnh (logo) qua đường dẫn /static/...
+app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(auth_routes.router)
 app.include_router(user_routes.router)
+app.include_router(admin_routes.router)
 # Cấu hình CORS để Web/Mobile frontend có thể gọi API từ domain khác
 app.add_middleware(
     CORSMiddleware,
@@ -70,8 +77,9 @@ def _ensure_model_loaded():
 @app.get("/", tags=["Health"])
 def root():
     return {
-        "service": "Fitness Exercise Recommendation API",
+        "service": "Neny Fetness API",
         "status": "ok" if ml_service.is_loaded else "model_not_loaded",
+        "logo": "/static/logo.png",
         "docs": "/docs",
     }
 
@@ -101,7 +109,6 @@ def predict(request: PredictRequest):
         logger.exception("Lỗi khi phân loại")
         raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {str(e)}")
 
-
 @app.post(
     "/recommend",
     response_model=RecommendResponse,
@@ -109,7 +116,7 @@ def predict(request: PredictRequest):
     tags=["Recommendation"],
     summary="Gợi ý bài tập dựa trên mô tả người dùng (content-based, cosine similarity)",
 )
-def recommend(request: RecommendRequest):
+def recommend(request: RecommendRequest, db: Session = Depends(get_db)):
     _ensure_model_loaded()
     try:
         result = ml_service.recommend(
@@ -117,6 +124,7 @@ def recommend(request: RecommendRequest):
             top_k=request.top_k,
             equipment=request.equipment,
             body_part=request.body_part,
+            db=db,
         )
         return result
     except Exception as e:

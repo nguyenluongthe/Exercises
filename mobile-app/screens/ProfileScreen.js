@@ -33,13 +33,19 @@ export default function ProfileScreen({ navigation }) {
         </Pressable>
       </View>
 
-      <Pressable style={styles.menuItem} onPress={() => navigation.navigate('Favorites')}>
-        <Text style={styles.menuText}>{t('favoriteExercises')}</Text>
-      </Pressable>
+      {user?.role !== 'admin' && (
+        <>
+          <Pressable style={styles.menuItem} onPress={() => navigation.navigate('Favorites')}>
+            <Text style={styles.menuText}>⭐ {t('favoriteExercises')}</Text>
+          </Pressable>
 
-      <Pressable style={styles.menuItem} onPress={() => navigation.navigate('WorkoutHistory')}>
-        <Text style={styles.menuText}>{t('workoutHistory')}</Text>
-      </Pressable>
+          <Pressable style={styles.menuItem} onPress={() => navigation.navigate('WorkoutHistory')}>
+            <Text style={styles.menuText}>📋 {t('workoutHistory')}</Text>
+          </Pressable>
+        </>
+      )}
+
+      
 
       <Pressable style={styles.logoutButton} onPress={logout}>
         <Text style={styles.logoutText}>{t('logOut')}</Text>

@@ -2,7 +2,9 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 //export const API_URL = 'http://192.168.0.21:8000';// ⚠️ Sửa đúng IP máy bạn
-export const API_URL = 'http://10.0.1.219:8000';
+//export const API_URL = 'http://10.0.1.219:8000';
+//const API_URL = "http://192.168.1.25:8000";
+export const API_URL = 'http://172.20.10.12:8000';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {

@@ -80,6 +80,7 @@ class UserOut(BaseModel):
     id: int
     email: str
     name: Optional[str] = None
+    role: str = "user"
 
     class Config:
         from_attributes = True
@@ -125,3 +126,36 @@ class WorkoutLogOut(BaseModel):
 
     class Config:
         from_attributes = True
+        # ---------- Admin ----------
+
+class AdminStats(BaseModel):
+    total_users: int
+    total_exercises: int
+    total_favorites: int
+    total_workout_logs: int
+    most_favorited_exercises: List[dict]
+    weekly_searches: List[dict]
+    monthly_new_users: List[dict]
+
+class ExerciseCreate(BaseModel):
+    name: str
+    body_part: str
+    equipment: str
+    target: str = ""
+    muscle_group: str = ""
+    secondary_muscles: List[str] = []
+    instructions_en: str = ""
+    image: Optional[str] = ""
+    gif_url: Optional[str] = ""
+
+
+class ExerciseUpdate(BaseModel):
+    name: Optional[str] = None
+    body_part: Optional[str] = None
+    equipment: Optional[str] = None
+    target: Optional[str] = None
+    muscle_group: Optional[str] = None
+    secondary_muscles: Optional[List[str]] = None
+    instructions_en: Optional[str] = None
+    image: Optional[str] = None
+    gif_url: Optional[str] = None
