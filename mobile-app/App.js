@@ -15,6 +15,7 @@ import FavoritesScreen from './screens/FavoritesScreen';
 import WorkoutHistoryScreen from './screens/WorkoutHistoryScreen';
 import AdminDashboardScreen from './screens/AdminDashboardScreen';
 import AdminExercisesScreen from './screens/AdminExercisesScreen';
+import OnboardingScreen from './screens/OnboardingScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -132,9 +133,8 @@ function RootNavigator() {
     );
   }
 
- const isAdmin = user?.role === 'admin';
-  console.log('DEBUG - user object:', JSON.stringify(user));
-  console.log('DEBUG - isAdmin:', isAdmin); 
+  const isAdmin = user?.role === 'admin';
+  const needsOnboarding = token && !isAdmin && user?.onboarding_completed === false;
 
   return (
     <Stack.Navigator screenOptions={isAdmin ? adminScreenOptions : userScreenOptions}>
@@ -142,10 +142,14 @@ function RootNavigator() {
         isAdmin ? (
           // Đăng nhập bằng Admin -> chỉ thấy 3 tab: Thống kê / Quản lý bài tập / Hồ sơ
           <Stack.Screen name="AdminTabs" component={AdminTabs} options={{ headerShown: false }} />
+        ) : needsOnboarding ? (
+          // Người dùng mới chưa hoàn tất khảo sát thể lực -> mở Onboarding
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
         ) : (
-          // Người dùng thường -> 3 tab: Tra cứu / Gợi ý / Hồ sơ, cùng các màn hình phụ
+          // Người dùng thường đã có hồ sơ -> 3 tab: Tra cứu / Gợi ý / Hồ sơ, cùng các màn hình phụ
           <>
             <Stack.Screen name="MainTabs" component={UserTabs} options={{ headerShown: false }} />
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Detail" component={DetailScreen} options={{ title: 'EXERCISE DETAIL' }} />
             <Stack.Screen name="Favorites" component={FavoritesScreen} options={{ title: 'FAVORITES' }} />
             <Stack.Screen name="WorkoutHistory" component={WorkoutHistoryScreen} options={{ title: 'WORKOUT HISTORY' }} />

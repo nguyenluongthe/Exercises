@@ -4,7 +4,7 @@ Tách riêng khỏi main.py để dễ test và dễ thay thế model sau này.
 """
 import re
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple, Dict, Any
 
 import joblib
 import numpy as np
@@ -13,7 +13,63 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from app import config
 from deep_translator import GoogleTranslator
+
 logger = logging.getLogger("ml_service")
+
+# =====================================================================
+# BỘ TỪ ĐIỂN THUẬT NGỮ GYM / THỂ HÌNH TIẾNG VIỆT -> TIẾNG ANH CHUẨN
+# Giải quyết bài toán đa dạng từ ngữ, tiếng lóng, từ địa phương của người dùng
+# =====================================================================
+GYM_THESAURUS_RULES: List[Tuple[str, str, str]] = [
+    # Lưng / Xô (Back / Lats)
+    (r"\b(lưng xô|kéo xô|tập xô|cơ xô|cơ lưng|lưng trên|lưng dưới|kéo xà|hít xà|lats|xô)\b", "back lats latissimus upper back pull up", "Lưng xô ➔ Back/Lats"),
+    # Tay trước / Bắp chuột (Biceps)
+    (r"\b(tay trước|bắp tay trước|chuột|bắp chuột|cơ tay trước|gập tay|cuốn tạ tay|bicep|biceps)\b", "biceps upper arms arm curl", "Tay trước ➔ Biceps"),
+    # Tay sau / Cơ tam đầu (Triceps)
+    (r"\b(tay sau|bắp tay sau|cơ tam đầu|cơ tay sau|duỗi tay sau|đá tay sau|tricep|triceps)\b", "triceps upper arms pushdown extension", "Tay sau ➔ Triceps"),
+    # Cẳng tay (Forearms)
+    (r"\b(cẳng tay|cổ tay|cơ cẳng tay|forearm|forearms)\b", "forearms lower arms wrist curl", "Cẳng tay ➔ Forearms"),
+    # Ngực (Chest)
+    (r"\b(bơm ngực|ngực trên|ngực dưới|ngực giữa|ép ngực|hít đất|chống đẩy|đẩy ngực|cơ ngực|ngực|chest)\b", "chest pectorals push up bench press", "Cơ ngực ➔ Chest"),
+    # Vai & Cổ (Shoulders / Neck)
+    (r"\b(cơ vai|bờ vai|vai trước|vai sau|vai ngang|cơ delta|nhấc vai|đẩy vai|vai|shoulder|shoulders)\b", "shoulders deltoids shoulder press lateral raise", "Cơ vai ➔ Shoulders"),
+    (r"\b(cơ cổ|tập cổ|gập cổ|cổ|neck)\b", "neck neck flex", "Cơ cổ ➔ Neck"),
+    # Bụng & Eo (Waist / Abs / Core)
+    (r"\b(cơ bụng|6 múi|sáu múi|gập bụng|siết mỡ bụng|siết eo|eo thon|bụng dưới|bụng trên|plank|bụng|abs|core|abdominals)\b", "waist abs abdominals core crunch plank", "Cơ bụng ➔ Abs/Core"),
+    # Đùi & Mông (Upper Legs / Quads / Hamstrings / Glutes)
+    (r"\b(đùi trước|đùi sau|cơ đùi|gánh đùi|gánh tạ|squat|mông|cơ mông|tăng vòng 3|chân mông|chân|đùi|quads|glutes|hamstrings)\b", "upper legs quadriceps hamstrings glutes squat lunge", "Đùi & Mông ➔ Legs/Glutes"),
+    # Bắp chân (Lower Legs / Calves)
+    (r"\b(bắp chuối|bắp chân|cơ bắp chân|nhón bắp chân|calves|calf)\b", "lower legs calves calf raise", "Bắp chân ➔ Calves"),
+    # Cardio & Thể lực
+    (r"\b(cardio|chạy bộ|nhảy dây|đốt mỡ|giảm mỡ|giảm cân|hiit|thể lực|sức bền)\b", "cardio endurance burning fat jumping rope hiit", "Cardio ➔ Cardio"),
+    # Dụng cụ (Equipment)
+    (r"\b(tạ đơn|tạ tay|dumbbell|dumbbells)\b", "dumbbell", "Tạ đơn ➔ Dumbbell"),
+    (r"\b(tạ đòn|thanh đòn|barbell)\b", "barbell", "Tạ đòn ➔ Barbell"),
+    (r"\b(dây kháng lực|dây thun|dây đàn hồi|band|bands)\b", "band resistance band", "Dây kháng lực ➔ Band"),
+    (r"\b(tạ bình|tạ bình vôi|kettlebell)\b", "kettlebell", "Tạ bình ➔ Kettlebell"),
+    (r"\b(không tạ|tại nhà|bodyweight|không dụng cụ|tự do)\b", "body weight home workout", "Không tạ ➔ Bodyweight"),
+    (r"\b(máy tập|kéo cáp|dây cáp|khối tạ|cable|machine)\b", "cable machine", "Máy/Cáp ➔ Machine/Cable"),
+]
+
+
+def extract_and_enrich_fitness_query(text: str) -> Tuple[List[str], List[str]]:
+    """
+    Phân tích câu nhập của người dùng:
+    1. Bóc tách các từ khóa thể hình / tiếng lóng tiếng Việt
+    2. Trả về: (danh sách token tiếng Anh chuẩn cần bổ sung, danh sách nhãn hiển thị giải thích AI)
+    """
+    cleaned_lower = text.lower()
+    interpreted_labels = []
+    enriched_tokens = []
+
+    for pattern, english_expansion, label in GYM_THESAURUS_RULES:
+        if re.search(pattern, cleaned_lower, re.IGNORECASE):
+            if label not in interpreted_labels:
+                interpreted_labels.append(label)
+            enriched_tokens.append(english_expansion)
+
+    return enriched_tokens, interpreted_labels
+
 
 def translate_query(text: str) -> str:
     """Tự động phát hiện ngôn ngữ và dịch sang tiếng Anh trước khi đưa vào model.
@@ -24,6 +80,8 @@ def translate_query(text: str) -> str:
     except Exception as e:
         logger.warning(f"Dịch truy vấn thất bại, dùng văn bản gốc: {e}")
         return text
+
+
 def clean_text(text: str) -> str:
     """Chuẩn hóa văn bản đầu vào — PHẢI giống hệt hàm dùng lúc train (train_model.py),
     nếu không vectorizer sẽ hiểu sai vì vocabulary được xây trên văn bản đã làm sạch."""
@@ -64,12 +122,23 @@ class MLService:
 
     # ---------- /predict ----------
 
-    def predict_body_part(self, text: str, top_n: int = 3):
+    def predict_body_part(self, text: str, top_n: int = 3) -> Dict[str, Any]:
         if not self.is_loaded:
             raise RuntimeError("Model chưa được load.")
 
+        # 1. Bóc tách từ khóa thể hình và tiếng lóng
+        enriched_tokens, interpreted_keywords = extract_and_enrich_fitness_query(text)
+
+        # 2. Dịch câu gốc sang tiếng Anh
         translated_text = translate_query(text)
-        cleaned = clean_text(translated_text)
+
+        # 3. Ghép các token domain tiếng Anh chuẩn vào câu dịch trước khi tạo vector
+        if enriched_tokens:
+            combined_text = f"{translated_text} {' '.join(enriched_tokens)}"
+        else:
+            combined_text = translated_text
+
+        cleaned = clean_text(combined_text)
         vector = self.classifier_vectorizer.transform([cleaned])
 
         probabilities = self.classifier_model.predict_proba(vector)[0]
@@ -82,10 +151,24 @@ class MLService:
             for i in ranked_idx
         ]
 
+        top_confidence = top_results[0]["confidence"]
+        # Phân loại cấp độ tin cậy
+        if top_confidence >= 0.70:
+            confidence_level = "high"
+        elif top_confidence >= 0.45:
+            confidence_level = "medium"
+        else:
+            confidence_level = "low"
+
+        clarification_needed = top_confidence < 0.45 and len(interpreted_keywords) == 0
+
         return {
             "input_text": text,
             "predicted_body_part": top_results[0]["body_part"],
-            "confidence": top_results[0]["confidence"],
+            "confidence": top_confidence,
+            "confidence_level": confidence_level,
+            "interpreted_keywords": interpreted_keywords,
+            "clarification_needed": clarification_needed,
             "top_3": top_results,
         }
 
@@ -98,7 +181,7 @@ class MLService:
         equipment: Optional[str] = None,
         body_part: Optional[str] = None,
         db=None,
-    ):
+    ) -> Dict[str, Any]:
         if not self.is_loaded:
             raise RuntimeError("Model chưa được load.")
 
@@ -107,8 +190,17 @@ class MLService:
 
         top_k = min(top_k, config.MAX_RECOMMEND_TOP_K)
 
+        # 1. Bóc tách từ khóa & làm giàu văn bản
+        enriched_tokens, interpreted_keywords = extract_and_enrich_fitness_query(text)
+
+        # 2. Dịch truy vấn và tạo vector TF-IDF
         translated_text = translate_query(text)
-        cleaned: str = clean_text(translated_text)
+        if enriched_tokens:
+            combined_text = f"{translated_text} {' '.join(enriched_tokens)}"
+        else:
+            combined_text = translated_text
+
+        cleaned: str = clean_text(combined_text)
         query_vector = self.recommender_vectorizer.transform([cleaned])
 
         similarity_scores = cosine_similarity(query_vector, self.recommender_matrix)[0]
@@ -116,7 +208,7 @@ class MLService:
         df = self.exercises_df.copy()
         df["similarity_score"] = similarity_scores
 
-        # Áp dụng bộ lọc theo dụng cụ / nhóm cơ nếu có (đúng như đề cương: "kết hợp bộ lọc theo dụng cụ sẵn có")
+        # Áp dụng bộ lọc theo dụng cụ / nhóm cơ nếu có
         if equipment:
             df = df[df["equipment"].str.lower() == equipment.strip().lower()]
         if body_part:
@@ -126,6 +218,20 @@ class MLService:
 
         results = []
         for _, row in df.iterrows():
+            sim_score = float(row["similarity_score"])
+            # Tính toán match score (%) thực tế trực quan từ cosine similarity
+            if sim_score <= 0.05:
+                match_score = round(max(35.0, sim_score * 300), 1)
+            else:
+                match_score = round(min(98.5, 45.0 + (sim_score ** 0.6) * 55.0), 1)
+
+            if match_score >= 80.0:
+                match_level = "high"
+            elif match_score >= 60.0:
+                match_level = "medium"
+            else:
+                match_level = "low"
+
             results.append({
                 "id": row["id"],
                 "name": row["name"],
@@ -137,12 +243,65 @@ class MLService:
                 "secondary_muscles": row["secondary_muscles"],
                 "image": row["image"],
                 "gif_url": row["gif_url"],
-               "instructions_en": row["instructions_en"],
+                "instructions_en": row["instructions_en"],
                 "instructions_vi": row["instructions_vi"],
-                "similarity_score": round(float(row["similarity_score"]), 4),
+                "similarity_score": round(sim_score, 4),
+                "match_score": match_score,
+                "match_level": match_level,
             })
 
-        return {"input_text": text, "results": results}
+        return {
+            "input_text": text,
+            "interpreted_keywords": interpreted_keywords,
+            "results": results,
+        }
+
+    # ---------- Gợi ý bài tập thay thế (Substitution - FR-007 SRS) ----------
+
+    def get_exercise_substitutions(self, exercise_id: str, top_k: int = 4) -> List[Dict[str, Any]]:
+        """Gợi ý các bài tập thay thế cùng nhóm cơ / mục tiêu (FR-007 trong SRS)."""
+        if not self.is_loaded:
+            raise RuntimeError("Model chưa được load.")
+
+        target_row = self.exercises_df[self.exercises_df["id"] == exercise_id]
+        if target_row.empty:
+            return []
+
+        target_exercise = target_row.iloc[0]
+        body_part = target_exercise["body_part"]
+        target = target_exercise["target"]
+
+        # Lọc các bài cùng nhóm cơ và mục tiêu, loại bỏ chính bài đó
+        df_same = self.exercises_df[
+            (self.exercises_df["id"] != exercise_id) &
+            (self.exercises_df["body_part"] == body_part)
+        ].copy()
+
+        if df_same.empty:
+            return []
+
+        # Ưu tiên các bài có cùng target cơ cụ thể
+        df_same["target_match"] = df_same["target"] == target
+        df_same = df_same.sort_values(by=["target_match"], ascending=False).head(top_k)
+
+        substitutions = []
+        for _, row in df_same.iterrows():
+            substitutions.append({
+                "id": row["id"],
+                "name": row["name"],
+                "name_vi": row["name_vi"],
+                "body_part": row["body_part"],
+                "equipment": row["equipment"],
+                "target": row["target"],
+                "muscle_group": row["muscle_group"],
+                "secondary_muscles": row["secondary_muscles"],
+                "image": row["image"],
+                "gif_url": row["gif_url"],
+                "instructions_en": row["instructions_en"],
+                "instructions_vi": row["instructions_vi"],
+            })
+
+        return substitutions
 
     # ---------- /exercises ----------
 

@@ -2,6 +2,7 @@
 FastAPI Backend — Hệ thống AI Gợi ý Bài tập Thể dục Cá nhân hóa.
 Endpoints: /predict (phân loại nhóm cơ), /recommend (gợi ý bài tập), /exercises (tra cứu dữ liệu).
 """
+from typing import List, Optional
 from app.database import engine, Base
 from app import auth_routes, user_routes, admin_routes
 import logging
@@ -44,7 +45,7 @@ app = FastAPI(
     ),
     version="1.0.0",
     lifespan=lifespan,
-    docs_url=None,  # Tắt docs mặc định, thay bằng bản tùy chỉnh có logo bên dưới
+    docs_url="/docs",
 )
 
 # Cho phép truy cập file tĩnh (logo) qua đường dẫn /static/...
@@ -171,3 +172,19 @@ def get_exercise(exercise_id: str):
     if result is None:
         raise HTTPException(status_code=404, detail=f"Không tìm thấy bài tập với id={exercise_id}")
     return result
+
+
+@app.get(
+    "/exercises/{exercise_id}/substitutions",
+    response_model=List[ExerciseOut],
+    responses={404: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+    tags=["Exercises"],
+    summary="Gợi ý các bài tập thay thế cùng nhóm cơ / mục tiêu (FR-007 SRS)",
+)
+def get_exercise_substitutions(
+    exercise_id: str,
+    top_k: int = Query(default=4, ge=1, le=10, description="Số lượng bài tập thay thế"),
+):
+    _ensure_model_loaded()
+    return ml_service.get_exercise_substitutions(exercise_id=exercise_id, top_k=top_k)
+

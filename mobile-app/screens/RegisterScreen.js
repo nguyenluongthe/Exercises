@@ -46,7 +46,7 @@ export default function RegisterScreen({ navigation }) {
       {error !== '' && <Text style={styles.error}>{error}</Text>}
 
       <Pressable style={styles.button} onPress={handleRegister} disabled={loading}>
-        <Text style={styles.buttonText}>{loading ? t('loading') : t('createAccount')}</Text>
+        <Text style={styles.buttonText}>{loading ? t('creatingAccount') : t('createAccount')}</Text>
       </Pressable>
 
       <Pressable onPress={() => navigation.navigate('Login')}>

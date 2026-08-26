@@ -40,7 +40,7 @@ export default function LoginScreen({ navigation }) {
       {error !== '' && <Text style={styles.error}>{error}</Text>}
 
       <Pressable style={styles.button} onPress={handleLogin} disabled={loading}>
-        <Text style={styles.buttonText}>{loading ? t('loading') : t('login')}</Text>
+        <Text style={styles.buttonText}>{loading ? t('loggingIn') : t('login')}</Text>
       </Pressable>
 
       <Pressable onPress={() => navigation.navigate('Register')}>
