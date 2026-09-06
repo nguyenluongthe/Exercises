@@ -16,6 +16,9 @@ import WorkoutHistoryScreen from './screens/WorkoutHistoryScreen';
 import AdminDashboardScreen from './screens/AdminDashboardScreen';
 import AdminExercisesScreen from './screens/AdminExercisesScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
+import WorkoutScreen from './screens/WorkoutScreen';
+import NutritionScreen from './screens/NutritionScreen';
+import { Home, Dumbbell, Salad, Activity, User } from 'lucide-react-native';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -36,43 +39,68 @@ function TabIcon({ symbol, focused }) {
   return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{symbol}</Text>;
 }
 
-// Bộ tab dành cho người dùng thường
+// Bộ tab dành cho người dùng thường (Minimalist Theme)
 function UserTabs() {
   const { t } = useLanguage();
   return (
     <Tab.Navigator
       screenOptions={{
-        ...userScreenOptions,
-        tabBarStyle: { backgroundColor: '#1C2340', borderTopColor: '#2E3760' },
-        tabBarActiveTintColor: '#FF5A1F',
-        tabBarInactiveTintColor: '#9AA3C7',
+        headerStyle: { backgroundColor: '#000000' },
+        headerTintColor: '#f2f2f7',
+        headerTitleStyle: { fontWeight: '600' },
+        tabBarStyle: { 
+          backgroundColor: 'rgba(0, 0, 0, 0.85)', 
+          borderTopColor: '#38383a',
+          paddingTop: 10,
+          height: 85
+        },
+        tabBarActiveTintColor: '#ffffff',
+        tabBarInactiveTintColor: '#8e8e93',
       }}
     >
-      <Tab.Screen
-        name="BrowseTab"
-        component={BrowseScreen}
-        options={{
-          title: t('browseTitle').toUpperCase(),
-          tabBarLabel: t('browse'),
-          tabBarIcon: ({ focused }) => <TabIcon symbol="📚" focused={focused} />,
-        }}
-      />
       <Tab.Screen
         name="HomeTab"
         component={HomeScreen}
         options={{
-          title: t('appTitle').toUpperCase(),
-          tabBarLabel: t('getSuggestions'),
-          tabBarIcon: ({ focused }) => <TabIcon symbol="✨" focused={focused} />,
+          title: 'Trang Chủ',
+          tabBarLabel: 'Trang Chủ',
+          tabBarIcon: ({ color }) => <Home color={color} size={24} strokeWidth={2} />,
+        }}
+      />
+      <Tab.Screen
+        name="WorkoutTab"
+        component={WorkoutScreen}
+        options={{
+          headerShown: false,
+          tabBarLabel: 'Bài Tập',
+          tabBarIcon: ({ color }) => <Dumbbell color={color} size={24} strokeWidth={2} />,
+        }}
+      />
+      <Tab.Screen
+        name="NutritionTab"
+        component={NutritionScreen}
+        options={{
+          headerShown: false,
+          tabBarLabel: 'Bữa Ăn',
+          tabBarIcon: ({ color }) => <Salad color={color} size={24} strokeWidth={2} />,
+        }}
+      />
+      <Tab.Screen
+        name="RecoveryTab"
+        component={WorkoutHistoryScreen} // Tạm dùng WorkoutHistoryScreen cho Phục hồi
+        options={{
+          title: 'Phục Hồi',
+          tabBarLabel: 'Phục Hồi',
+          tabBarIcon: ({ color }) => <Activity color={color} size={24} strokeWidth={2} />,
         }}
       />
       <Tab.Screen
         name="ProfileTab"
         component={ProfileScreen}
         options={{
-          title: t('profileTitle').toUpperCase(),
-          tabBarLabel: t('profile'),
-          tabBarIcon: ({ focused }) => <TabIcon symbol="👤" focused={focused} />,
+          title: 'Hồ Sơ',
+          tabBarLabel: 'Hồ Sơ',
+          tabBarIcon: ({ color }) => <User color={color} size={24} strokeWidth={2} />,
         }}
       />
     </Tab.Navigator>

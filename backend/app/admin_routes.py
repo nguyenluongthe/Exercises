@@ -1,5 +1,6 @@
 """Endpoint dành riêng cho quản trị viên — quản lý bài tập, xem thống kê hệ thống."""
 from fastapi import APIRouter, Depends, HTTPException
+# pyrefly: ignore [missing-import]
 from sqlalchemy.orm import Session
 
 from app.database import get_db
