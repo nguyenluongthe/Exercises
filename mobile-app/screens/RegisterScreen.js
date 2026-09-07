@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, Pressable, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -29,45 +29,120 @@ export default function RegisterScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.brandName}>NENY FETNESS</Text>
-<Text style={styles.title}>{t('signUp').toUpperCase()}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.content}>
+            <View style={styles.headerContainer}>
+              <Text style={styles.brandName}>NENY FITNESS</Text>
+              <Text style={styles.title}>{t('signUp').toUpperCase()}</Text>
+            </View>
 
-      <TextInput style={styles.input} placeholder={t('name')} placeholderTextColor="#5A6690" value={name} onChangeText={setName} />
-      <TextInput
-        style={styles.input} placeholder={t('email')} placeholderTextColor="#5A6690"
-        value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address"
-      />
-      <TextInput
-        style={styles.input} placeholder={t('passwordMin')} placeholderTextColor="#5A6690"
-        value={password} onChangeText={setPassword} secureTextEntry
-      />
+            <View style={styles.formContainer}>
+              <TextInput 
+                style={styles.input} 
+                placeholder={t('name')} 
+                placeholderTextColor="#A1A1AA" 
+                value={name} 
+                onChangeText={setName} 
+              />
+              <TextInput
+                style={styles.input} 
+                placeholder={t('email')} 
+                placeholderTextColor="#A1A1AA"
+                value={email} 
+                onChangeText={setEmail} 
+                autoCapitalize="none" 
+                keyboardType="email-address"
+              />
+              <TextInput
+                style={styles.input} 
+                placeholder={t('passwordMin')} 
+                placeholderTextColor="#A1A1AA"
+                value={password} 
+                onChangeText={setPassword} 
+                secureTextEntry
+              />
 
-      {error !== '' && <Text style={styles.error}>{error}</Text>}
+              {error !== '' && <Text style={styles.error}>{error}</Text>}
 
-      <Pressable style={styles.button} onPress={handleRegister} disabled={loading}>
-        <Text style={styles.buttonText}>{loading ? t('creatingAccount') : t('createAccount')}</Text>
-      </Pressable>
+              <Pressable 
+                style={({ pressed }) => [
+                  styles.button,
+                  pressed && styles.buttonPressed,
+                  loading && styles.buttonDisabled
+                ]} 
+                onPress={handleRegister} 
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#09090B" />
+                ) : (
+                  <Text style={styles.buttonText}>{t('createAccount')}</Text>
+                )}
+              </Pressable>
 
-      <Pressable onPress={() => navigation.navigate('Login')}>
-        <Text style={styles.link}>{t('haveAccount')}</Text>
-      </Pressable>
-
-      {loading && <ActivityIndicator style={{ marginTop: 16 }} />}
-    </View>
+              <Pressable onPress={() => navigation.navigate('Login')} style={styles.linkContainer}>
+                <Text style={styles.linkText}>{t('haveAccount')} <Text style={styles.linkHighlight}>{t('login')}</Text></Text>
+              </Pressable>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#12172B', justifyContent: 'center', padding: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#F5F3ED', marginBottom: 28, letterSpacing: 1, textAlign: 'center' },
-  input: { borderWidth: 1, borderColor: '#2E3760', borderRadius: 10, padding: 14, marginBottom: 12, backgroundColor: '#1C2340', color: '#F5F3ED', fontSize: 15 },
-  button: { backgroundColor: '#FF5A1F', paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginTop: 8 },
-  buttonText: { color: '#12172B', fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', fontSize: 14 },
-  error: { color: '#FF7A7A', marginBottom: 8, textAlign: 'center' },
-  link: { color: '#9AA3C7', textAlign: 'center', marginTop: 20, fontSize: 14 },
+  safeArea: { flex: 1, backgroundColor: '#09090B' },
+  container: { flex: 1, backgroundColor: '#09090B' },
+  scrollContent: { flexGrow: 1, justifyContent: 'center' },
+  content: { flex: 1, justifyContent: 'center', padding: 24, paddingBottom: 60 },
+  headerContainer: { marginBottom: 40, alignItems: 'center' },
   brandName: {
-  fontSize: 32, fontWeight: '900', color: '#FF5A1F',
-  textAlign: 'center', letterSpacing: 2, marginBottom: 4,
-},
+    fontSize: 34, 
+    fontWeight: '900', 
+    color: '#FF4500', 
+    textAlign: 'center', 
+    letterSpacing: 2, 
+    marginBottom: 8,
+  },
+  title: { fontSize: 16, fontWeight: '600', color: '#FAFAFA', letterSpacing: 3, textAlign: 'center' },
+  formContainer: { width: '100%', gap: 16 },
+  input: { 
+    borderWidth: 1, 
+    borderColor: '#27272A', 
+    borderRadius: 12, 
+    padding: 16, 
+    backgroundColor: '#18181B', 
+    color: '#FAFAFA', 
+    fontSize: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  button: { 
+    backgroundColor: '#FF4500', 
+    paddingVertical: 16, 
+    borderRadius: 12, 
+    alignItems: 'center', 
+    marginTop: 8,
+    shadowColor: '#FF4500',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  buttonPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: '#09090B', fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase', fontSize: 15 },
+  error: { color: '#EF4444', textAlign: 'center', fontSize: 14, fontWeight: '500' },
+  linkContainer: { marginTop: 24, padding: 8, alignItems: 'center' },
+  linkText: { color: '#A1A1AA', fontSize: 14 },
+  linkHighlight: { color: '#FF4500', fontWeight: '700' },
 });

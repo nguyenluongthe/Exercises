@@ -2,8 +2,8 @@
 ## Ứng Dụng: Adaptive Fitness & Recovery
 
 **Phiên bản:** 1.0.0  
-**Ngày:** 26/08/2026  
-**Trạng thái:** Draft  
+**Ngày:** 26/08/2026 (Cập nhật mới nhất)  
+**Trạng thái:** Final / Approved  
 
 ---
 
@@ -207,10 +207,15 @@
 - Hỗ trợ đồng thời ≥ 100,000 người dùng hoạt động
 - Database sharding sẵn sàng cho ≥ 10 triệu người dùng
 
-### 3.5 Khả Năng Sử Dụng (Usability)
+### 3.5 Khả Năng Sử Dụng & Giao Diện (Usability & UI/UX)
 - Giao diện đạt chuẩn WCAG 2.1 AA (hỗ trợ người khiếm khuyết)
-- Hỗ trợ chế độ dark/light mode
+- **Thiết kế chủ đạo (Design System):** Phong cách **Premium Dark Mode** hiện đại, cao cấp.
+  - Màu nền chính (Background): Deep Zinc/Black (`#09090B`)
+  - Màu nền phụ (Surface/Cards): Elevated Dark (`#18181B`)
+  - Màu nhấn (Primary/Accent): Cam nổi bật (`#FF4500`) tạo sự năng động, thể thao.
+  - Typography: Rõ ràng, tối giản với màu chữ chủ đạo là trắng (`#FAFAFA`) và xám (`#A1A1AA`).
 - Tối ưu cho màn hình 4" – 13" (phone, tablet)
+- Ứng dụng công nghệ Glassmorphism và viền tinh tế (`#27272A`) cho các thành phần UI.
 - Đa ngôn ngữ: Tiếng Việt, Tiếng Anh (giai đoạn 1), mở rộng thêm sau
 
 ### 3.6 Khả Năng Bảo Trì (Maintainability)
@@ -326,9 +331,9 @@ User ──────────────── UserProfile
 
 ### Ràng Buộc
 - Ứng dụng phải hoạt động trên iOS 15+ và Android 10+
-- Dữ liệu y tế phải tuân thủ các quy định địa phương
-- Ngân sách phát triển Phase 1 không vượt [TBD]
-- Team phát triển ban đầu: [TBD] người
+- Dữ liệu y tế phải tuân thủ các quy định địa phương (GDPR, PDPA).
+- Ngân sách phát triển Phase 1: Theo kế hoạch dự án khởi tạo (Project Charter).
+- Team phát triển ban đầu: Đội ngũ 4-6 thành viên (gồm Project Manager, Backend/AI Dev, Mobile Dev, UI/UX Designer).
 
 ### Giả Định
 - Người dùng đồng ý chia sẻ dữ liệu sức khỏe để nhận gợi ý cá nhân hóa
@@ -354,4 +359,16 @@ User ──────────────── UserProfile
 
 ---
 
-*Tài liệu này là nền tảng để thảo luận và sẽ được cập nhật theo phản hồi từ các bên liên quan.*
+## 11. Các Ca Sử Dụng Chính (Core Use Cases)
+
+| Use Case | Mô tả ngắn gọn |
+|----------|----------------|
+| **UC01: Khởi tạo hồ sơ** | Người dùng mới nhập dữ liệu cơ thể, mục tiêu và hoàn thành bài kiểm tra thể lực để AI phân tích. |
+| **UC02: Tạo kế hoạch tập**| Hệ thống AI tự động sinh ra lịch tập luyện hàng tuần dựa trên Fitness Score và mục tiêu. |
+| **UC03: Ghi nhận buổi tập**| Người dùng đánh dấu hoàn thành các bài tập, nhập số Reps/Weights thực tế và RPE. |
+| **UC04: Điều chỉnh tự động**| Sau khi ghi nhận buổi tập và dữ liệu phục hồi (giấc ngủ/DOMS), AI điều chỉnh lịch trình của ngày hôm sau. |
+| **UC05: Quản trị hệ thống**| Admin đăng nhập vào Dashboard để thêm/sửa bài tập, xem thống kê người dùng và quản lý phản hồi. |
+
+---
+
+*Tài liệu này là nền tảng chuẩn thức để tiến hành lập trình và nghiệm thu sản phẩm.*

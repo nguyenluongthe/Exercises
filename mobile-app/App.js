@@ -24,8 +24,8 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const userScreenOptions = {
-  headerStyle: { backgroundColor: '#12172B' },
-  headerTintColor: '#F5F3ED',
+  headerStyle: { backgroundColor: '#09090B' },
+  headerTintColor: '#FAFAFA',
   headerTitleStyle: { fontWeight: '700', letterSpacing: 0.5 },
 };
 
@@ -39,23 +39,23 @@ function TabIcon({ symbol, focused }) {
   return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{symbol}</Text>;
 }
 
-// Bộ tab dành cho người dùng thường (Minimalist Theme)
+// Bộ tab dành cho người dùng thường (Premium Dark Mode)
 function UserTabs() {
   const { t } = useLanguage();
   return (
     <Tab.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#000000' },
-        headerTintColor: '#f2f2f7',
-        headerTitleStyle: { fontWeight: '600' },
+        headerStyle: { backgroundColor: '#09090B' },
+        headerTintColor: '#FAFAFA',
+        headerTitleStyle: { fontWeight: '700' },
         tabBarStyle: { 
-          backgroundColor: 'rgba(0, 0, 0, 0.85)', 
-          borderTopColor: '#38383a',
+          backgroundColor: '#09090B', 
+          borderTopColor: '#27272A',
           paddingTop: 10,
           height: 85
         },
-        tabBarActiveTintColor: '#ffffff',
-        tabBarInactiveTintColor: '#8e8e93',
+        tabBarActiveTintColor: '#FF4500',
+        tabBarInactiveTintColor: '#A1A1AA',
       }}
     >
       <Tab.Screen
@@ -155,8 +155,8 @@ function RootNavigator() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#12172B', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator color="#FF5A1F" size="large" />
+      <View style={{ flex: 1, backgroundColor: '#09090B', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator color="#FF4500" size="large" />
       </View>
     );
   }
