@@ -1,23 +1,15 @@
-"""Cấu hình chung cho ứng dụng."""
-import os
+"""
+Proxy tương thích ngược cho app.config.
+"""
+from app.core.config import settings, BASE_DIR, MODELS_DIR
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODELS_DIR = os.path.join(BASE_DIR, "models")
-
-CLASSIFIER_MODEL_PATH = os.path.join(MODELS_DIR, "classifier_model.pkl")
-CLASSIFIER_VECTORIZER_PATH = os.path.join(MODELS_DIR, "classifier_vectorizer.pkl")
-RECOMMENDER_VECTORIZER_PATH = os.path.join(MODELS_DIR, "recommender_vectorizer.pkl")
-RECOMMENDER_MATRIX_PATH = os.path.join(MODELS_DIR, "recommender_matrix.pkl")
-EXERCISES_DATA_PATH = os.path.join(MODELS_DIR, "exercises_processed.pkl")
-
-# CORS: cho phép tất cả origin khi phát triển (dev). Khi deploy thật,
-# nên giới hạn lại thành domain cụ thể của Web/Mobile app.
-CORS_ALLOW_ORIGINS = os.getenv("CORS_ALLOW_ORIGINS", "*").split(",")
-
-# Số kết quả gợi ý mặc định nếu client không truyền top_k
-DEFAULT_RECOMMEND_TOP_K = 5
-MAX_RECOMMEND_TOP_K = 20
-
-# Số bản ghi mặc định mỗi trang cho endpoint /exercises
-DEFAULT_PAGE_SIZE = 20
-MAX_PAGE_SIZE = 100
+CLASSIFIER_MODEL_PATH = settings.CLASSIFIER_MODEL_PATH
+CLASSIFIER_VECTORIZER_PATH = settings.CLASSIFIER_VECTORIZER_PATH
+RECOMMENDER_VECTORIZER_PATH = settings.RECOMMENDER_VECTORIZER_PATH
+RECOMMENDER_MATRIX_PATH = settings.RECOMMENDER_MATRIX_PATH
+EXERCISES_DATA_PATH = settings.EXERCISES_DATA_PATH
+CORS_ALLOW_ORIGINS = settings.CORS_ALLOW_ORIGINS
+DEFAULT_RECOMMEND_TOP_K = settings.DEFAULT_RECOMMEND_TOP_K
+MAX_RECOMMEND_TOP_K = settings.MAX_RECOMMEND_TOP_K
+DEFAULT_PAGE_SIZE = settings.DEFAULT_PAGE_SIZE
+MAX_PAGE_SIZE = settings.MAX_PAGE_SIZE

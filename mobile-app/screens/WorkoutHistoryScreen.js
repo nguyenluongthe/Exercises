@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react';
 import { StyleSheet, Text, View, FlatList, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { useAuth, API_URL } from '../context/AuthContext';
+import { workoutApi } from '../api/workoutApi';
 import { useLanguage } from '../context/LanguageContext';
+import { colors, radius, spacing, typography } from '../theme';
 
 export default function WorkoutHistoryScreen() {
-  const { token } = useAuth();
   const { t } = useLanguage();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,20 +13,27 @@ export default function WorkoutHistoryScreen() {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/workout-logs`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      setLogs(data);
+      const data = await workoutApi.getWorkoutHistory();
+      setLogs(data || []);
     } catch (err) {
-      console.log('Failed to load workout logs:', err);
+      console.warn('Failed to load workout logs:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  useFocusEffect(useCallback(() => { fetchLogs(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      fetchLogs();
+    }, [])
+  );
 
   if (loading) {
-    return <View style={styles.centered}><ActivityIndicator color="#FF5A1F" size="large" /></View>;
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
   }
 
   return (
@@ -36,23 +43,47 @@ export default function WorkoutHistoryScreen() {
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{item.exercise_name}</Text>
-            <Text style={styles.cardSubtitle}>{item.sets} × {item.reps} — {t('reps')}</Text>
-            <Text style={styles.cardDate}>{item.logged_at}</Text>
+            <View style={styles.row}>
+              <Text style={styles.cardTitle}>{item.exercise_name}</Text>
+              <Text style={styles.repsBadge}>{item.sets} × {item.reps} {t('reps')}</Text>
+            </View>
+            <Text style={styles.cardDate}>🕒 {item.logged_at}</Text>
           </View>
         )}
-        ListEmptyComponent={<Text style={styles.emptyText}>{t('noWorkoutLogs')}</Text>}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>📋</Text>
+            <Text style={styles.emptyText}>{t('noWorkoutLogs')}</Text>
+          </View>
+        }
+        contentContainerStyle={styles.listContent}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#12172B', padding: 20 },
-  centered: { flex: 1, backgroundColor: '#12172B', justifyContent: 'center', alignItems: 'center' },
-  card: { backgroundColor: '#1C2340', borderRadius: 10, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#2E3760' },
-  cardTitle: { color: '#F5F3ED', fontSize: 15, fontWeight: '600' },
-  cardSubtitle: { color: '#9AA3C7', fontSize: 13, marginTop: 4 },
-  cardDate: { color: '#5A6690', fontSize: 11, marginTop: 4 },
-  emptyText: { color: '#9AA3C7', textAlign: 'center', marginTop: 40 },
+  container: { flex: 1, backgroundColor: colors.background },
+  centered: { flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },
+  listContent: { padding: spacing.lg },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  cardTitle: { color: colors.text, ...typography.body, fontWeight: '700', flex: 1 },
+  repsBadge: { color: colors.primary, ...typography.caption, fontWeight: '700', marginLeft: spacing.sm },
+  cardDate: { color: colors.textSecondary, ...typography.caption, marginTop: 4 },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 60 },
+  emptyIcon: { fontSize: 40, marginBottom: spacing.md },
+  emptyText: { color: colors.textSecondary, ...typography.body, textAlign: 'center' },
 });

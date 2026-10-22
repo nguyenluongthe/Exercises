@@ -1,62 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
 import { Play, Flame, ShieldAlert } from 'lucide-react-native';
-import { API_URL, useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
+import { useDailyWorkout } from '../hooks/useDailyWorkout';
+import { colors, radius, spacing, typography } from '../theme';
 
-const CHIP_COLORS = {
-  bg: 'transparent',
-  text: '#8e8e93',
-  activeBg: '#ffffff',
-  activeText: '#000000',
-  border: '#38383a'
-};
-
-const WorkoutScreen = () => {
-  const { token, profile } = useAuth();
+const WorkoutScreen = ({ navigation }) => {
+  const { profile } = useAuth();
+  const { dailyWorkout, loading } = useDailyWorkout();
   const [time, setTime] = useState('45 Phút');
   const [equipment, setEquipment] = useState('Gym Đầy Đủ');
-  const [dailyWorkout, setDailyWorkout] = useState(null);
-  const [loading, setLoading] = useState(false);
 
   const times = ['15 Phút', '30 Phút', '45 Phút', '60 Phút'];
   const equipments = ['Gym Đầy Đủ', 'Tại Nhà', 'Tạ Đơn'];
 
-  useEffect(() => {
-    const loadDailyAdaptiveWorkout = async () => {
-      if (!token) return;
-      setLoading(true);
-      try {
-        const res = await fetch(`${API_URL}/adaptive/daily-workout`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setDailyWorkout(data);
-        }
-      } catch (err) {
-        console.log('Failed to fetch daily workout:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadDailyAdaptiveWorkout();
-  }, [token]);
-
   const exercises = dailyWorkout?.exercises || [
     { name: 'Barbell Squat', meta: '4 Sets × 8 Reps' },
     { name: 'Romanian Deadlift', meta: '3 Sets × 10 Reps' },
-    { name: 'Leg Extension', meta: '3 Sets × 12 Reps' }
+    { name: 'Leg Extension', meta: '3 Sets × 12 Reps' },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.sectionTitle}>Bài Tập</Text>
+        <Text style={styles.sectionTitle}>Bài Tập Hôm Nay</Text>
 
         <View style={styles.chipGroupWrapper}>
-          <Text style={styles.chipGroupTitle}>Thời gian</Text>
+          <Text style={styles.chipGroupTitle}>Thời gian dự kiến</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipGroup}>
-            {times.map(t => (
+            {times.map((t) => (
               <TouchableOpacity
                 key={t}
                 style={[styles.chip, time === t && styles.chipActive]}
@@ -69,9 +41,9 @@ const WorkoutScreen = () => {
         </View>
 
         <View style={styles.chipGroupWrapper}>
-          <Text style={styles.chipGroupTitle}>Thiết bị</Text>
+          <Text style={styles.chipGroupTitle}>Dụng cụ tập luyện</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipGroup}>
-            {equipments.map(e => (
+            {equipments.map((e) => (
               <TouchableOpacity
                 key={e}
                 style={[styles.chip, equipment === e && styles.chipActive]}
@@ -86,43 +58,56 @@ const WorkoutScreen = () => {
         <View style={styles.card}>
           <View style={styles.highlightHeader}>
             <Text style={styles.highlightText}>
-              {dailyWorkout ? dailyWorkout.routine_title_vi || dailyWorkout.routine_title : 'Chuyên Sâu Đùi & Mông'}
+              {dailyWorkout ? (dailyWorkout.routine_title_vi || dailyWorkout.routine_title) : 'Chuyên Sâu Đùi & Mông'}
             </Text>
-            <Flame color="#ff9f0a" size={20} />
+            <Flame color={colors.primary} size={20} />
           </View>
-          
+
           {loading ? (
-            <ActivityIndicator color="#ffffff" style={{ marginVertical: 20 }} />
+            <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
           ) : (
             <View style={styles.workoutList}>
               {exercises.map((ex, index) => (
-                <View key={index} style={styles.workoutItem}>
+                <TouchableOpacity
+                  key={index}
+                  style={styles.workoutItem}
+                  activeOpacity={0.8}
+                  onPress={() => navigation && navigation.navigate('Detail', { exercise: ex })}
+                >
                   <View style={{ flex: 1, paddingRight: 10 }}>
                     <Text style={styles.workoutName}>{ex.name_vi || ex.name}</Text>
                     <Text style={styles.workoutMeta}>{ex.meta || `${ex.body_part || ''} · ${ex.equipment || ''}`}</Text>
                   </View>
                   <View style={styles.playBtn}>
-                    <Play color="#ffffff" size={16} fill="#ffffff" />
+                    <Play color="#FFFFFF" size={16} fill="#FFFFFF" />
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
 
           <View style={styles.injuryGuard}>
-            <ShieldAlert color="#ff9f0a" size={20} />
+            <ShieldAlert color={colors.primary} size={20} />
             <View style={styles.injuryGuardTextContainer}>
               <Text style={styles.injuryGuardTitle}>Bảo vệ chấn thương</Text>
               <Text style={styles.injuryGuardDesc}>
-                {profile?.injury_history 
-                  ? `AI tự động thay thế bài tập để tránh vùng ${profile.injury_history} theo hồ sơ của bạn.`
-                  : 'Không phát hiện chấn thương trong hồ sơ. Bạn có thể tập toàn bộ các bài.'}
+                {profile?.avoid_injury && profile.avoid_injury !== 'none'
+                  ? `AI tự động thay thế bài tập để tránh vùng chấn thương (${profile.avoid_injury}) theo hồ sơ của bạn.`
+                  : 'Không phát hiện chấn thương trong hồ sơ. Bạn có thể tập toàn bộ các bài theo lộ trình.'}
               </Text>
             </View>
           </View>
 
-          <TouchableOpacity style={styles.btnPrimary}>
-            <Text style={styles.btnPrimaryText}>Bắt Đầu</Text>
+          <TouchableOpacity
+            style={styles.btnPrimary}
+            activeOpacity={0.8}
+            onPress={() => {
+              if (exercises.length > 0 && navigation) {
+                navigation.navigate('Detail', { exercise: exercises[0] });
+              }
+            }}
+          >
+            <Text style={styles.btnPrimaryText}>Bắt Đầu Buổi Tập</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -131,38 +116,38 @@ const WorkoutScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  content: { padding: 20, paddingBottom: 100 },
-  sectionTitle: { fontSize: 24, fontWeight: '600', color: '#f2f2f7', marginBottom: 20 },
-  chipGroupWrapper: { marginBottom: 20 },
-  chipGroupTitle: { fontSize: 14, fontWeight: '500', color: '#8e8e93', marginBottom: 12 },
-  chipGroup: { flexDirection: 'row', gap: 8 },
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.lg, paddingBottom: 100 },
+  sectionTitle: { ...typography.h1, color: colors.text, marginBottom: spacing.lg },
+  chipGroupWrapper: { marginBottom: spacing.lg },
+  chipGroupTitle: { ...typography.bodySmall, fontWeight: '600', color: colors.textSecondary, marginBottom: spacing.sm },
+  chipGroup: { flexDirection: 'row', gap: spacing.sm },
   chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 999,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: CHIP_COLORS.border,
-    backgroundColor: CHIP_COLORS.bg,
-    marginRight: 8
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
+    marginRight: spacing.sm,
   },
-  chipActive: { backgroundColor: CHIP_COLORS.activeBg, borderColor: CHIP_COLORS.activeBg },
-  chipText: { fontSize: 14, fontWeight: '500', color: CHIP_COLORS.text },
-  chipTextActive: { color: CHIP_COLORS.activeText },
-  card: { backgroundColor: '#1c1c1e', borderRadius: 16, padding: 20, marginBottom: 16 },
-  highlightHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#38383a', paddingBottom: 12, marginBottom: 16 },
-  highlightText: { fontSize: 16, fontWeight: '600', color: '#ffffff' },
-  workoutList: { gap: 16 },
-  workoutItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  workoutName: { fontSize: 16, fontWeight: '500', color: '#f2f2f7', marginBottom: 4 },
-  workoutMeta: { fontSize: 14, color: '#8e8e93' },
-  playBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#2c2c2e', justifyContent: 'center', alignItems: 'center' },
-  injuryGuard: { marginTop: 10, backgroundColor: 'rgba(255, 159, 10, 0.1)', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'flex-start' },
-  injuryGuardTextContainer: { marginLeft: 12, flex: 1 },
-  injuryGuardTitle: { fontSize: 13, fontWeight: '600', color: '#f2f2f7' },
-  injuryGuardDesc: { fontSize: 13, color: '#8e8e93', marginTop: 4, lineHeight: 18 },
-  btnPrimary: { width: '100%', paddingVertical: 14, borderRadius: 12, backgroundColor: '#ffffff', alignItems: 'center', marginTop: 24 },
-  btnPrimaryText: { color: '#000000', fontSize: 16, fontWeight: '600' }
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { ...typography.bodySmall, fontWeight: '600', color: colors.textSecondary },
+  chipTextActive: { color: '#FFFFFF' },
+  card: { backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.lg },
+  highlightHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: spacing.md, marginBottom: spacing.lg },
+  highlightText: { ...typography.bodyLarge, fontWeight: '700', color: colors.text },
+  workoutList: { gap: spacing.md },
+  workoutItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  workoutName: { ...typography.body, fontWeight: '600', color: colors.text, marginBottom: 2 },
+  workoutMeta: { ...typography.caption, color: colors.textSecondary },
+  playBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
+  injuryGuard: { marginTop: spacing.md, backgroundColor: colors.primaryLight, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: colors.primary },
+  injuryGuardTextContainer: { marginLeft: spacing.md, flex: 1 },
+  injuryGuardTitle: { ...typography.bodySmall, fontWeight: '700', color: colors.text },
+  injuryGuardDesc: { ...typography.caption, color: colors.textSecondary, marginTop: 2, lineHeight: 18 },
+  btnPrimary: { width: '100%', paddingVertical: spacing.md, borderRadius: radius.md, backgroundColor: colors.primary, alignItems: 'center', marginTop: spacing.xl },
+  btnPrimaryText: { color: '#FFFFFF', ...typography.body, fontWeight: '700' },
 });
 
 export default WorkoutScreen;

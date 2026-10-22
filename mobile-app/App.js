@@ -18,7 +18,7 @@ import AdminExercisesScreen from './screens/AdminExercisesScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import WorkoutScreen from './screens/WorkoutScreen';
 import NutritionScreen from './screens/NutritionScreen';
-import { Home, Dumbbell, Salad, Activity, User } from 'lucide-react-native';
+import { Home, Dumbbell, Salad, Activity, User, BarChart3, Wrench } from 'lucide-react-native';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -30,14 +30,10 @@ const userScreenOptions = {
 };
 
 const adminScreenOptions = {
-  headerStyle: { backgroundColor: '#FFFFFF' },
-  headerTintColor: '#1E293B',
+  headerStyle: { backgroundColor: '#09090B' },
+  headerTintColor: '#FAFAFA',
   headerTitleStyle: { fontWeight: '700', letterSpacing: 0.5 },
 };
-
-function TabIcon({ symbol, focused }) {
-  return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{symbol}</Text>;
-}
 
 // Bộ tab dành cho người dùng thường (Premium Dark Mode)
 function UserTabs() {
@@ -107,16 +103,21 @@ function UserTabs() {
   );
 }
 
-// Bộ tab RIÊNG dành cho Admin — hoàn toàn khác, không có Tra cứu/AI/Yêu thích
+// Bộ tab RIÊNG dành cho Admin (Premium Zinc Dark Mode)
 function AdminTabs() {
   const { t } = useLanguage();
   return (
     <Tab.Navigator
       screenOptions={{
         ...adminScreenOptions,
-        tabBarStyle: { backgroundColor: '#FFFFFF', borderTopColor: '#E2E8F0' },
-        tabBarActiveTintColor: '#4F46E5',
-        tabBarInactiveTintColor: '#94A3B8',
+        tabBarStyle: { 
+          backgroundColor: '#09090B', 
+          borderTopColor: '#27272A',
+          paddingTop: 10,
+          height: 85
+        },
+        tabBarActiveTintColor: '#FF4500',
+        tabBarInactiveTintColor: '#A1A1AA',
       }}
     >
       <Tab.Screen
@@ -125,7 +126,7 @@ function AdminTabs() {
         options={{
           title: t('adminDashboard').toUpperCase(),
           tabBarLabel: t('adminDashboard'),
-          tabBarIcon: ({ focused }) => <TabIcon symbol="📊" focused={focused} />,
+          tabBarIcon: ({ color }) => <BarChart3 color={color} size={24} strokeWidth={2} />,
         }}
       />
       <Tab.Screen
@@ -134,7 +135,7 @@ function AdminTabs() {
         options={{
           title: t('adminExercises').toUpperCase(),
           tabBarLabel: t('adminExercises'),
-          tabBarIcon: ({ focused }) => <TabIcon symbol="🛠️" focused={focused} />,
+          tabBarIcon: ({ color }) => <Wrench color={color} size={24} strokeWidth={2} />,
         }}
       />
       <Tab.Screen
@@ -143,7 +144,7 @@ function AdminTabs() {
         options={{
           title: t('profileTitle').toUpperCase(),
           tabBarLabel: t('profile'),
-          tabBarIcon: ({ focused }) => <TabIcon symbol="👤" focused={focused} />,
+          tabBarIcon: ({ color }) => <User color={color} size={24} strokeWidth={2} />,
         }}
       />
     </Tab.Navigator>

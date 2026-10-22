@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  StyleSheet, Text, View, TextInput, FlatList, Image,
+  StyleSheet, Text, View, TextInput, FlatList,
   TouchableOpacity, ActivityIndicator, ScrollView,
 } from 'react-native';
-import { API_URL } from '../context/AuthContext';
+import { exerciseApi } from '../api/exerciseApi';
 import { useLanguage } from '../context/LanguageContext';
+import ExerciseCard from '../components/exercise/ExerciseCard';
+import { colors, radius, spacing, typography } from '../theme';
 
 const BODY_PARTS = [
   'chest', 'back', 'shoulders', 'upper arms', 'lower arms',
@@ -31,46 +33,41 @@ export default function BrowseScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const buildQuery = (pageNum) => {
-    const params = new URLSearchParams();
-    if (search.trim().length > 0) params.append('search', search.trim());
-    if (selectedBodyPart) params.append('body_part', selectedBodyPart);
-    if (selectedEquipment) params.append('equipment', selectedEquipment);
-    params.append('page', pageNum);
-    params.append('page_size', PAGE_SIZE);
-    return params.toString();
-  };
-
   const fetchExercises = async (pageNum, append) => {
     if (append) setLoadingMore(true);
     else setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/exercises?${buildQuery(pageNum)}`);
-      const data = await res.json();
+      const data = await exerciseApi.listExercises({
+        bodyPart: selectedBodyPart || undefined,
+        equipment: selectedEquipment || undefined,
+        search: search.trim() || undefined,
+        page: pageNum,
+        pageSize: PAGE_SIZE,
+      });
+
       setTotal(data.total);
       setExercises((prev) => (append ? [...prev, ...data.results] : data.results));
       setPage(pageNum);
     } catch (err) {
-      console.log('Failed to fetch exercises:', err);
+      console.warn('Failed to fetch exercises:', err);
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
   };
 
-  // Tải lại từ đầu mỗi khi search hoặc bộ lọc thay đổi
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
       fetchExercises(1, false);
-    }, 400); // Chờ 0.4s sau khi ngừng gõ mới gọi API, tránh gọi liên tục từng ký tự
+    }, 400);
 
     return () => clearTimeout(delayDebounce);
   }, [search, selectedBodyPart, selectedEquipment]);
 
   const handleLoadMore = () => {
     if (loadingMore || loading) return;
-    if (exercises.length >= total) return; // Đã tải hết
+    if (exercises.length >= total) return;
     fetchExercises(page + 1, true);
   };
 
@@ -82,29 +79,12 @@ export default function BrowseScreen({ navigation }) {
     setSelectedEquipment((prev) => (prev === eq ? null : eq));
   };
 
-  const renderExercise = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('Detail', { exercise: item })}
-    >
-      {item.image ? (
-        <Image source={{ uri: item.image }} style={styles.cardImage} resizeMode="cover" />
-      ) : null}
-      <View style={styles.cardContent}>
-        <Text style={styles.cardTitle}>
-          {lang === 'vi' && item.name_vi ? item.name_vi : item.name}
-        </Text>
-        <Text style={styles.cardSubtitle}>{item.body_part} · {item.equipment}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-
   return (
     <View style={styles.container}>
       <TextInput
         style={styles.input}
         placeholder={t('searchByName')}
-        placeholderTextColor="#5A6690"
+        placeholderTextColor={colors.textMuted}
         value={search}
         onChangeText={setSearch}
       />
@@ -146,23 +126,34 @@ export default function BrowseScreen({ navigation }) {
       </ScrollView>
 
       {loading ? (
-        <ActivityIndicator color="#FF5A1F" size="large" style={{ marginTop: 40 }} />
+        <ActivityIndicator color={colors.primary} size="large" style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           style={styles.list}
           data={exercises}
           keyExtractor={(item) => item.id}
-          renderItem={renderExercise}
+          renderItem={({ item }) => (
+            <ExerciseCard
+              exercise={item}
+              lang={lang}
+              onPress={(ex) => navigation.navigate('Detail', { exercise: ex })}
+            />
+          )}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
-          ListEmptyComponent={<Text style={styles.emptyText}>{t('noResultsFound')}</Text>}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>{t('noResultsFound')}</Text>
+            </View>
+          }
           ListFooterComponent={
             loadingMore ? (
               <View style={{ paddingVertical: 16 }}>
-                <ActivityIndicator color="#FF5A1F" />
+                <ActivityIndicator color={colors.primary} />
               </View>
             ) : null
           }
+          contentContainerStyle={{ paddingBottom: 60 }}
         />
       )}
     </View>
@@ -170,31 +161,32 @@ export default function BrowseScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#12172B', paddingTop: 16, paddingHorizontal: 20 },
+  container: { flex: 1, backgroundColor: colors.background, paddingTop: spacing.md, paddingHorizontal: spacing.lg },
   input: {
-    width: '100%', borderWidth: 1, borderColor: '#2E3760', borderRadius: 10,
-    padding: 14, marginBottom: 12, backgroundColor: '#1C2340',
-    color: '#F5F3ED', fontSize: 15,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
+    color: colors.text,
+    ...typography.body,
   },
-  chipRow: { flexGrow: 0, marginBottom: 10 },
+  chipRow: { flexGrow: 0, marginBottom: spacing.sm },
   chip: {
-    borderWidth: 1, borderColor: '#2E3760', borderRadius: 999,
-    paddingVertical: 6, paddingHorizontal: 14, marginRight: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.full,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    marginRight: spacing.sm,
+    backgroundColor: colors.surfaceElevated,
   },
-  chipActive: { backgroundColor: '#FF5A1F', borderColor: '#FF5A1F' },
-  chipText: { color: '#9AA3C7', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  chipTextActive: { color: '#12172B', fontWeight: '700' },
-  list: { marginTop: 12 },
-  emptyText: { textAlign: 'center', marginTop: 40, color: '#9AA3C7' },
-  card: {
-    flexDirection: 'row', backgroundColor: '#1C2340', borderRadius: 12,
-    marginBottom: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#2E3760',
-  },
-  cardImage: { width: 88, height: 88 },
-  cardContent: { flex: 1, padding: 12, justifyContent: 'center' },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: '#F5F3ED' },
-  cardSubtitle: {
-    fontSize: 11, color: '#9AA3C7', marginTop: 4,
-    textTransform: 'uppercase', letterSpacing: 0.5,
-  },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { color: colors.textSecondary, ...typography.caption, textTransform: 'uppercase' },
+  chipTextActive: { color: '#FFFFFF', fontWeight: '700' },
+  list: { marginTop: spacing.sm },
+  emptyContainer: { alignItems: 'center', marginTop: 40 },
+  emptyText: { textAlign: 'center', color: colors.textSecondary, ...typography.body },
 });

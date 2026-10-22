@@ -1,357 +1,263 @@
-import { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, TextInput, Pressable,
-  ActivityIndicator, FlatList, Image, TouchableOpacity, ScrollView,
+  ActivityIndicator, FlatList, TouchableOpacity,
 } from 'react-native';
-import { API_URL, useAuth } from '../context/AuthContext';
+import { User, Target, Dumbbell, Zap, Search, X, Sparkles } from 'lucide-react-native';
+import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-
-const QUICK_PROMPTS = [
-  { labelVi: '🔥 Ngực', labelEn: '🔥 Chest', queryVi: 'tập ngực với tạ đơn', queryEn: 'chest workout with dumbbell' },
-  { labelVi: '🏋️ Lưng xô', labelEn: '🏋️ Back/Lats', queryVi: 'tập lưng xô kéo xà tại nhà', queryEn: 'back and lats workout at home' },
-  { labelVi: '🦾 Tay trước/sau', labelEn: '🦾 Arms/Biceps', queryVi: 'độ bắp tay trước và tay sau', queryEn: 'biceps and triceps workout' },
-  { labelVi: '⚡ Bụng 6 múi', labelEn: '⚡ Abs/Core', queryVi: 'gập bụng siết mỡ 6 múi tại nhà', queryEn: 'abs core sixpack workout' },
-  { labelVi: '🦵 Chân mông', labelEn: '🦵 Legs/Glutes', queryVi: 'gánh tạ phát triển cơ đùi và mông', queryEn: 'squats for legs and glutes' },
-  { labelVi: '🏃 Cardio đốt mỡ', labelEn: '🏃 Cardio Fat Burn', queryVi: 'cardio hiit đốt mỡ toàn thân', queryEn: 'cardio hiit fat burning' },
-  { labelVi: '🏠 Không tạ (Home)', labelEn: '🏠 Bodyweight', queryVi: 'chống đẩy và bài tập không cần tạ tại nhà', queryEn: 'bodyweight home workout' },
-  { labelVi: '🏋️ Tạ đơn (Dumbbell)', labelEn: '🏋️ Dumbbell', queryVi: 'bài tập toàn thân với tạ đơn', queryEn: 'full body dumbbell workout' },
-];
+import { useDailyWorkout } from '../hooks/useDailyWorkout';
+import { useExerciseSearch } from '../hooks/useExerciseSearch';
+import ExerciseCard from '../components/exercise/ExerciseCard';
+import QuickPromptList from '../components/exercise/QuickPromptList';
+import ReadinessScoreCard from '../components/exercise/ReadinessScoreCard';
+import Badge from '../components/common/Badge';
+import ErrorView from '../components/common/ErrorView';
+import { colors, radius, spacing, typography } from '../theme';
 
 export default function HomeScreen({ navigation }) {
-  const { token, user, profile } = useAuth();
+  const { user, profile } = useAuth();
   const { t, lang } = useLanguage();
-  const [description, setDescription] = useState('');
-  const [predictionData, setPredictionData] = useState(null);
-  const [exercises, setExercises] = useState([]);
-  const [dailyWorkout, setDailyWorkout] = useState(null);
-  const [dailyLoading, setDailyLoading] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { dailyWorkout } = useDailyWorkout();
+  const {
+    description,
+    setDescription,
+    predictionData,
+    exercises,
+    loading,
+    error,
+    executeSearch,
+    clearSearch,
+  } = useExerciseSearch();
 
-  // Tải buổi tập đề xuất thích nghi hôm nay dựa trên hồ sơ người dùng
-  useEffect(() => {
-    const loadDailyAdaptiveWorkout = async () => {
-      if (!token) return;
-      setDailyLoading(true);
-      try {
-        const res = await fetch(`${API_URL}/adaptive/daily-workout`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setDailyWorkout(data);
-        }
-      } catch (err) {
-        console.log('Failed to fetch daily workout:', err);
-      } finally {
-        setDailyLoading(false);
-      }
-    };
-    loadDailyAdaptiveWorkout();
-  }, [token, profile?.fitness_goal, profile?.available_equipment]);
-
-  const executeSearch = async (textToSearch, filterBodyPart = null) => {
-    if (textToSearch.trim().length < 3) {
-      setError(t('enterLongerDescription'));
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      // 1. Gọi API Predict phân loại nhóm cơ & đo độ tin cậy
-      const predictRes = await fetch(`${API_URL}/predict`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: textToSearch }),
-      });
-      if (!predictRes.ok) throw new Error(`Predict failed: ${predictRes.status}`);
-      const pred = await predictRes.json();
-      setPredictionData(pred);
-
-      // 2. Gọi API Recommend lấy danh sách bài tập khớp nhất
-      const targetBodyPart = filterBodyPart || pred.predicted_body_part;
-      const recommendRes = await fetch(`${API_URL}/recommend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: textToSearch,
-          body_part: filterBodyPart ? filterBodyPart : undefined,
-          top_k: 6,
-        }),
-      });
-      if (!recommendRes.ok) throw new Error(`Recommend failed: ${recommendRes.status}`);
-      const recData = await recommendRes.json();
-      setExercises(recData.results);
-    } catch (err) {
-      console.log('Error detail:', err);
-      setError(`${t('failedToConnect')}: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePress = () => {
+  const handleSearchSubmit = () => {
     executeSearch(description);
   };
 
-  const handleSelectQuickPrompt = (prompt) => {
-    const text = lang === 'vi' ? prompt.queryVi : prompt.queryEn;
-    setDescription(text);
-    executeSearch(text);
+  const handleSelectQuickPrompt = (promptQuery) => {
+    setDescription(promptQuery);
+    executeSearch(promptQuery);
   };
 
   const handleSwitchAlternate = (bodyPartName) => {
-    if (predictionData) {
-      setPredictionData((prev) => ({ ...prev, predicted_body_part: bodyPartName }));
-    }
     executeSearch(description, bodyPartName);
   };
 
+  // If no search executed, display daily workout exercises with high suitability percentage
+  const displayList = exercises.length > 0
+    ? exercises
+    : (dailyWorkout?.exercises?.map((ex, idx) => ({
+        ...ex,
+        match_score: ex.match_score || (94 - idx * 2),
+      })) || []);
+
   const renderConfidenceBadge = (confidence, level) => {
     const percent = Math.round(confidence * 100);
-    let badgeColor = '#00E599'; // High
-    let levelText = t('confidenceHigh');
-
-    if (level === 'medium' || (percent >= 45 && percent < 70)) {
-      badgeColor = '#F59E0B'; // Medium
-      levelText = t('confidenceMedium');
-    } else if (level === 'low' || percent < 45) {
-      badgeColor = '#EF4444'; // Low
-      levelText = t('confidenceLow');
-    }
+    const variant = (level === 'high' || percent >= 70)
+      ? 'success'
+      : (level === 'medium' || percent >= 45)
+      ? 'warning'
+      : 'default';
 
     return (
       <View style={styles.confidenceContainer}>
         <View style={styles.confidenceRow}>
           <Text style={styles.confidenceLabel}>{t('aiConfidence')}:</Text>
-          <View style={[styles.confidencePill, { borderColor: badgeColor, backgroundColor: `${badgeColor}15` }]}>
-            <View style={[styles.confidenceDot, { backgroundColor: badgeColor }]} />
-            <Text style={[styles.confidenceValue, { color: badgeColor }]}>{percent}% · {levelText}</Text>
-          </View>
+          <Badge label={`${percent}% · ${level.toUpperCase()}`} variant={variant} />
         </View>
-
-        {/* Confidence Progress Meter */}
         <View style={styles.meterTrack}>
-          <View style={[styles.meterFill, { width: `${Math.min(100, Math.max(10, percent))}%`, backgroundColor: badgeColor }]} />
+          <View
+            style={[
+              styles.meterFill,
+              {
+                width: `${Math.min(100, Math.max(10, percent))}%`,
+                backgroundColor: variant === 'success' ? colors.success : variant === 'warning' ? colors.warning : colors.error,
+              },
+            ]}
+          />
         </View>
       </View>
-    );
-  };
-
-  const renderExercise = ({ item }) => {
-    const matchScore = item.match_score || Math.round((item.similarity_score || 0.5) * 100);
-    const isHighMatch = matchScore >= 80;
-
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        activeOpacity={0.85}
-        onPress={() => navigation.navigate('Detail', { exercise: item })}
-      >
-        {item.image || item.gif_url ? (
-          <Image source={{ uri: item.gif_url || item.image }} style={styles.cardImage} resizeMode="cover" />
-        ) : (
-          <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
-            <Text style={styles.cardImagePlaceholderText}>🏋️</Text>
-          </View>
-        )}
-        <View style={styles.cardContent}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              {lang === 'vi' && item.name_vi ? item.name_vi : item.name}
-            </Text>
-            <View style={[styles.matchBadge, isHighMatch ? styles.matchBadgeHigh : styles.matchBadgeMedium]}>
-              <Text style={[styles.matchBadgeText, isHighMatch ? styles.matchTextHigh : styles.matchTextMedium]}>
-                {matchScore}% {t('match')}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.cardMetaRow}>
-            <Text style={styles.cardPill}>{item.body_part}</Text>
-            <Text style={styles.cardPillSecondary}>{item.equipment}</Text>
-          </View>
-
-          {item.target ? (
-            <Text style={styles.cardTarget} numberOfLines={1}>
-              🎯 {item.target}
-            </Text>
-          ) : null}
-        </View>
-      </TouchableOpacity>
     );
   };
 
   return (
     <View style={styles.container}>
-      {/* User Greeting & AI Readiness Bar */}
-      <View style={styles.heroHeader}>
-        <View style={styles.greetingRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greetingText}>
-              👋 {user?.name ? `${user.name}` : 'Neny Athlete'}
-            </Text>
-            <Text style={styles.greetingSub}>
-              {profile?.fitness_goal ? `🎯 ${profile.fitness_goal.toUpperCase()}` : '⚡ ADAPTIVE FITNESS'}
-              {profile?.available_equipment ? ` · 🏋️ ${profile.available_equipment.toUpperCase()}` : ''}
-            </Text>
-          </View>
-
-          {/* Readiness Gauge Widget */}
-          <View style={styles.readinessWidget}>
-            <Text style={styles.readinessScoreVal}>
-              {profile?.daily_readiness_score || 88}
-            </Text>
-            <Text style={styles.readinessScoreLabel}>{t('readinessScoreLabel')}</Text>
-          </View>
-        </View>
-
-        <View style={styles.aiStatusBadge}>
-          <View style={styles.aiStatusPulse} />
-          <Text style={styles.aiStatusText}>{t('aiAccuracy')}</Text>
-        </View>
-      </View>
-
-      {/* Input Prompt Section */}
-      <View style={styles.searchSection}>
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.input}
-            placeholder={t('inputPlaceholder')}
-            placeholderTextColor="#5A6690"
-            value={description}
-            onChangeText={setDescription}
-            multiline={false}
-            returnKeyType="search"
-            onSubmitEditing={handlePress}
-          />
-          {description.length > 0 && (
-            <Pressable style={styles.clearButton} onPress={() => { setDescription(''); setPredictionData(null); setExercises([]); }}>
-              <Text style={styles.clearButtonText}>✕</Text>
-            </Pressable>
-          )}
-        </View>
-
-        <Pressable style={styles.actionButton} onPress={handlePress} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#12172B" size="small" />
-          ) : (
-            <Text style={styles.actionButtonText}>⚡ {t('getSuggestions')}</Text>
-          )}
-        </Pressable>
-      </View>
-
-      {/* Quick Focus Chips */}
-      <View style={styles.quickSection}>
-        <Text style={styles.quickTitle}>{t('quickPrompts')}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickScroll}>
-          {QUICK_PROMPTS.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.quickChip}
-              onPress={() => handleSelectQuickPrompt(item)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.quickChipText}>{lang === 'vi' ? item.labelVi : item.labelEn}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {error !== '' && <Text style={styles.error}>{error}</Text>}
-
-      {/* TODAY'S ADAPTIVE WORKOUT (Hiển thị khi chưa tìm kiếm) */}
-      {!predictionData && dailyWorkout && dailyWorkout.exercises && dailyWorkout.exercises.length > 0 && (
-        <View style={styles.dailyRoutineSection}>
-          <View style={styles.dailyRoutineHeader}>
-            <View>
-              <Text style={styles.dailyRoutineTag}>⚡ AI DAILY ROUTINE</Text>
-              <Text style={styles.dailyRoutineTitle}>
-                {lang === 'vi' && dailyWorkout.routine_title_vi ? dailyWorkout.routine_title_vi : dailyWorkout.routine_title}
-              </Text>
-            </View>
-            <View style={styles.dailyStatusBadge}>
-              <Text style={styles.dailyStatusText}>
-                {lang === 'vi' ? dailyWorkout.readiness_status_vi : dailyWorkout.readiness_status}
-              </Text>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* AI Prediction & Explainability Card */}
-      {predictionData && (
-        <View style={styles.aiInsightsCard}>
-          <View style={styles.aiInsightsHeader}>
-            <Text style={styles.aiInsightsTitle}>🤖 {t('recommendedFor')}:</Text>
-            <Text style={styles.aiPredictedMuscle}>{predictionData.predicted_body_part.toUpperCase()}</Text>
-          </View>
-
-          {/* Confidence Meter Bar */}
-          {renderConfidenceBadge(predictionData.confidence, predictionData.confidence_level)}
-
-          {/* Identified Keywords / AI Explainability */}
-          {predictionData.interpreted_keywords && predictionData.interpreted_keywords.length > 0 && (
-            <View style={styles.keywordsBlock}>
-              <Text style={styles.keywordsHeader}>💡 {t('identifiedKeywords')}:</Text>
-              <View style={styles.keywordsRow}>
-                {predictionData.interpreted_keywords.map((kw, idx) => (
-                  <View key={idx} style={styles.keywordTag}>
-                    <Text style={styles.keywordTagText}>{kw}</Text>
+      {/* 1. TOP FIXED SECTION: Header & Search are OUTSIDE FlatList so typing never loses focus */}
+      <View style={styles.topSection}>
+        {/* User Greeting & Status */}
+        <View style={styles.heroHeader}>
+          <View style={styles.greetingRow}>
+            <View style={{ flex: 1 }}>
+              <View style={styles.userNameRow}>
+                <User size={16} color={colors.primary} />
+                <Text style={styles.greetingText} numberOfLines={1}>
+                  {user?.name ? user.name : 'Neny Athlete'}
+                </Text>
+              </View>
+              <View style={styles.metaRow}>
+                {profile?.fitness_goal ? (
+                  <View style={styles.metaChip}>
+                    <Target size={11} color={colors.primary} />
+                    <Text style={styles.greetingSub}>{profile.fitness_goal.toUpperCase()}</Text>
                   </View>
-                ))}
+                ) : (
+                  <View style={styles.metaChip}>
+                    <Zap size={11} color={colors.primary} />
+                    <Text style={styles.greetingSub}>THỂ LỰC THÍCH ỨNG</Text>
+                  </View>
+                )}
+                {profile?.available_equipment ? (
+                  <View style={styles.metaChip}>
+                    <Dumbbell size={11} color={colors.info} />
+                    <Text style={styles.greetingSub}>{profile.available_equipment.toUpperCase()}</Text>
+                  </View>
+                ) : null}
               </View>
             </View>
-          )}
 
-          {/* One-tap Switch for Top 3 Muscle Alternates */}
-          {predictionData.top_3 && predictionData.top_3.length > 1 && (
-            <View style={styles.alternatesBlock}>
-              <Text style={styles.alternatesHeader}>🔄 {t('alternativeSuggestions')}:</Text>
-              <View style={styles.alternatesRow}>
-                {predictionData.top_3
-                  .filter((item) => item.body_part !== predictionData.predicted_body_part)
-                  .map((item, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      style={styles.alternateBtn}
-                      onPress={() => handleSwitchAlternate(item.body_part)}
-                    >
-                      <Text style={styles.alternateBtnText}>
-                        👉 {item.body_part} ({Math.round(item.confidence * 100)}%)
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-              </View>
+            <View style={styles.readinessWidget}>
+              <Text style={styles.readinessScoreVal}>
+                {profile?.daily_readiness_score || 88}
+              </Text>
+              <Text style={styles.readinessScoreLabel}>{t('readinessScoreLabel')}</Text>
             </View>
-          )}
-
-          {/* Low Confidence Clarification Tip */}
-          {predictionData.clarification_needed && (
-            <View style={styles.clarificationBox}>
-              <Text style={styles.clarificationText}>ℹ️ {t('clarificationTip')}</Text>
-            </View>
-          )}
+          </View>
         </View>
-      )}
 
-      {/* Suggested Exercises List */}
+        {/* Search Input Section */}
+        <View style={styles.searchSection}>
+          <View style={styles.inputWrapper}>
+            <Search size={16} color={colors.textMuted} style={styles.searchIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder={t('inputPlaceholder')}
+              placeholderTextColor={colors.textMuted}
+              value={description}
+              onChangeText={setDescription}
+              returnKeyType="search"
+              onSubmitEditing={handleSearchSubmit}
+              autoCorrect={false}
+            />
+            {description.length > 0 && (
+              <Pressable style={styles.clearButton} onPress={clearSearch}>
+                <X size={16} color={colors.textMuted} />
+              </Pressable>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            activeOpacity={0.85}
+            onPress={handleSearchSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <View style={styles.actionButtonContent}>
+                <Search size={15} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>{t('getSuggestions')}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Quick Focus Prompts */}
+        <QuickPromptList onSelect={handleSelectQuickPrompt} lang={lang} />
+      </View>
+
+      {/* 2. SCROLLABLE RESULTS SECTION */}
       <FlatList
-        style={styles.list}
-        data={exercises.length > 0 ? exercises : (!predictionData && dailyWorkout?.exercises ? dailyWorkout.exercises : [])}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderExercise}
-        contentContainerStyle={{ paddingBottom: 30 }}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          !loading && predictionData ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>{t('noExercisesFound')}</Text>
-            </View>
-          ) : null
+        data={displayList}
+        keyExtractor={(item) => (item.id ? item.id.toString() : item.name)}
+        renderItem={({ item }) => (
+          <ExerciseCard
+            exercise={item}
+            lang={lang}
+            onPress={(ex) => navigation.navigate('Detail', { exercise: ex })}
+          />
+        )}
+        ListHeaderComponent={
+          <View style={styles.listHeader}>
+            {/* Error View */}
+            {error ? <ErrorView message={error} onRetry={handleSearchSubmit} /> : null}
+
+            {/* Daily Adaptive Routine Banner (when not searching) */}
+            {!exercises.length && dailyWorkout ? (
+              <ReadinessScoreCard
+                workout={dailyWorkout}
+                lang={lang}
+                onPress={() => navigation.navigate('WorkoutTab')}
+              />
+            ) : null}
+
+            {/* AI Prediction & Keywords Banner (when searching) */}
+            {predictionData && (
+              <View style={styles.predictionCard}>
+                <View style={styles.predictionHeader}>
+                  <View style={styles.predictionTagRow}>
+                    <Sparkles size={13} color={colors.primary} />
+                    <Text style={styles.predictionTag}>NHẬN DIỆN MỤC TIÊU TẬP</Text>
+                  </View>
+                  <Text style={styles.predictedMuscle}>
+                    {predictionData.predicted_body_part.toUpperCase()}
+                  </Text>
+                </View>
+
+                {renderConfidenceBadge(predictionData.confidence, predictionData.confidence_level)}
+
+                {predictionData.interpreted_keywords && predictionData.interpreted_keywords.length > 0 ? (
+                  <View style={styles.keywordsBox}>
+                    <View style={styles.keywordsHeaderRow}>
+                      <Search size={12} color={colors.textSecondary} />
+                      <Text style={styles.keywordsTitle}>Từ khóa nhận diện được:</Text>
+                    </View>
+                    <View style={styles.keywordsRow}>
+                      {predictionData.interpreted_keywords.map((kw, i) => (
+                        <Badge key={i} label={kw} variant="info" style={{ marginBottom: 4 }} />
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+
+                {/* Top 3 Alternative Candidates */}
+                {predictionData.top_3 && predictionData.top_3.length > 1 ? (
+                  <View style={styles.alternatesContainer}>
+                    <Text style={styles.alternatesTitle}>Các nhóm cơ có liên quan:</Text>
+                    <View style={styles.alternatesRow}>
+                      {predictionData.top_3.map((cand, idx) => (
+                        <TouchableOpacity
+                          key={idx}
+                          style={[
+                            styles.altPill,
+                            cand.body_part === predictionData.predicted_body_part && styles.altPillActive,
+                          ]}
+                          onPress={() => handleSwitchAlternate(cand.body_part)}
+                        >
+                          <Text
+                            style={[
+                              styles.altPillText,
+                              cand.body_part === predictionData.predicted_body_part && styles.altPillTextActive,
+                            ]}
+                          >
+                            {cand.body_part} ({Math.round(cand.confidence * 100)}%)
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            <Text style={styles.sectionTitle}>
+              {exercises.length > 0
+                ? `${t('recommendedExercises')} (${exercises.length})`
+                : 'Bài Tập Gợi Ý Trong Ngày'}
+            </Text>
+          </View>
         }
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
       />
     </View>
   );
@@ -360,439 +266,240 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#09090B',
-    paddingTop: 16,
-    paddingHorizontal: 16,
+    backgroundColor: colors.background,
+  },
+  topSection: {
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   heroHeader: {
-    marginBottom: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+  },
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   greetingText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FAFAFA',
-    letterSpacing: 0.5,
+    ...typography.h3,
+    color: colors.text,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   greetingSub: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#A1A1AA',
-    marginTop: 2,
-    letterSpacing: 0.5,
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '700',
   },
   readinessWidget: {
-    backgroundColor: '#18181B',
-    borderRadius: 12,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    backgroundColor: colors.surfaceElevated,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#30d158',
+    borderColor: colors.border,
   },
   readinessScoreVal: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#30d158',
+    ...typography.h3,
+    color: colors.primary,
   },
   readinessScoreLabel: {
+    ...typography.caption,
     fontSize: 9,
-    fontWeight: '600',
-    color: '#A1A1AA',
-    textTransform: 'uppercase',
-  },
-  dailyRoutineSection: {
-    backgroundColor: '#18181B',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#27272A',
-    marginBottom: 12,
-  },
-  dailyRoutineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dailyRoutineTag: {
-    fontSize: 10,
+    color: colors.textSecondary,
     fontWeight: '700',
-    color: '#FAFAFA',
-    letterSpacing: 1.5,
-    marginBottom: 2,
-  },
-  dailyRoutineTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FAFAFA',
-  },
-  dailyStatusBadge: {
-    backgroundColor: 'rgba(0, 229, 153, 0.12)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 229, 153, 0.3)',
-  },
-  dailyStatusText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#30d158',
-  },
-  aiStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#27272A',
-    alignSelf: 'flex-start',
-  },
-  aiStatusPulse: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#30d158',
-    marginRight: 6,
-  },
-  aiStatusText: {
-    color: '#A1A1AA',
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
   },
   searchSection: {
-    marginBottom: 12,
+    marginBottom: spacing.xs,
   },
   inputWrapper: {
     position: 'relative',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: spacing.sm,
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: 14,
+    zIndex: 1,
   },
   input: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#27272A',
-    borderRadius: 12,
-    paddingVertical: 13,
-    paddingHorizontal: 16,
+    backgroundColor: colors.surface,
+    color: colors.text,
+    borderRadius: radius.md,
+    paddingLeft: 40,
     paddingRight: 40,
-    backgroundColor: '#18181B',
-    color: '#FAFAFA',
-    fontSize: 14,
+    paddingVertical: spacing.md,
+    ...typography.body,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   clearButton: {
     position: 'absolute',
-    right: 12,
-    padding: 6,
-  },
-  clearButtonText: {
-    color: '#A1A1AA',
-    fontSize: 14,
-    fontWeight: '700',
+    right: 14,
+    padding: 4,
+    zIndex: 1,
   },
   actionButton: {
-    backgroundColor: '#FF4500',
-    paddingVertical: 13,
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md - 2,
     alignItems: 'center',
-    shadowColor: '#FF4500',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    justifyContent: 'center',
+  },
+  actionButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   actionButtonText: {
-    color: '#FAFAFA',
+    ...typography.body,
     fontWeight: '700',
-    letterSpacing: 0.5,
-    fontSize: 14,
+    color: '#FFFFFF',
   },
-  quickSection: {
-    marginBottom: 14,
+  listContent: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.huge,
   },
-  quickTitle: {
-    color: '#A1A1AA',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
+  listHeader: {
+    marginBottom: spacing.xs,
   },
-  quickScroll: {
-    flexDirection: 'row',
-    gap: 8,
+  sectionTitle: {
+    ...typography.h3,
+    color: colors.text,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
   },
-  quickChip: {
-    backgroundColor: '#18181B',
+  predictionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
     borderWidth: 1,
-    borderColor: '#27272A',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    borderColor: colors.border,
+    marginBottom: spacing.lg,
   },
-  quickChipText: {
-    color: '#FAFAFA',
-    fontSize: 13,
-    fontWeight: '500',
+  predictionHeader: {
+    marginBottom: spacing.md,
   },
-  aiInsightsCard: {
-    backgroundColor: '#18181B',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#27272A',
-  },
-  aiInsightsHeader: {
+  predictionTagRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
+    gap: 6,
   },
-  aiInsightsTitle: {
-    color: '#A1A1AA',
-    fontSize: 13,
-    fontWeight: '700',
+  predictionTag: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
-  aiPredictedMuscle: {
-    color: '#FF4500',
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+  predictedMuscle: {
+    ...typography.h2,
+    color: colors.text,
+    marginTop: 2,
   },
   confidenceContainer: {
-    marginBottom: 12,
+    marginVertical: spacing.sm,
   },
   confidenceRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
   },
   confidenceLabel: {
-    color: '#A1A1AA',
-    fontSize: 12,
-  },
-  confidencePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-  },
-  confidenceDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 5,
-  },
-  confidenceValue: {
-    fontSize: 11,
-    fontWeight: '800',
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
   meterTrack: {
-    width: '100%',
-    height: 5,
-    backgroundColor: '#27272A',
-    borderRadius: 3,
+    height: 6,
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radius.full,
     overflow: 'hidden',
   },
   meterFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: radius.full,
   },
-  keywordsBlock: {
-    marginTop: 6,
-    paddingTop: 8,
+  keywordsBox: {
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: '#27272A',
+    borderTopColor: colors.border,
   },
-  keywordsHeader: {
-    color: '#A1A1AA',
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 6,
+  keywordsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: spacing.xs,
+  },
+  keywordsTitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   keywordsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: spacing.xs,
   },
-  keywordTag: {
-    backgroundColor: '#18181B',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#3F3F46',
-  },
-  keywordTagText: {
-    color: '#00E599',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  alternatesBlock: {
-    marginTop: 10,
-    paddingTop: 8,
+  alternatesContainer: {
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: '#27272A',
+    borderTopColor: colors.border,
   },
-  alternatesHeader: {
-    color: '#A1A1AA',
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 6,
+  alternatesTitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
   },
   alternatesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: spacing.xs,
   },
-  alternateBtn: {
-    backgroundColor: '#18181B',
+  altPill: {
+    backgroundColor: colors.surfaceElevated,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: '#FF4500',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+    borderColor: colors.border,
   },
-  alternateBtnText: {
-    color: '#FF4500',
-    fontSize: 11,
+  altPillActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  altPillText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  altPillTextActive: {
+    color: colors.primary,
     fontWeight: '700',
-  },
-  clarificationBox: {
-    marginTop: 10,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderRadius: 8,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
-  },
-  clarificationText: {
-    color: '#F59E0B',
-    fontSize: 11,
-    lineHeight: 16,
-  },
-  list: {
-    flex: 1,
-  },
-  card: {
-    flexDirection: 'row',
-    backgroundColor: '#18181B',
-    borderRadius: 12,
-    marginBottom: 10,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#27272A',
-  },
-  cardImage: {
-    width: 90,
-    height: 90,
-    backgroundColor: '#27272A',
-  },
-  cardImagePlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardImagePlaceholderText: {
-    fontSize: 28,
-  },
-  cardContent: {
-    flex: 1,
-    padding: 10,
-    justifyContent: 'center',
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 4,
-  },
-  cardTitle: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#FAFAFA',
-    marginRight: 6,
-  },
-  matchBadge: {
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  matchBadgeHigh: {
-    backgroundColor: 'rgba(0, 229, 153, 0.12)',
-    borderColor: 'rgba(0, 229, 153, 0.4)',
-  },
-  matchBadgeMedium: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderColor: 'rgba(245, 158, 11, 0.4)',
-  },
-  matchBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  matchTextHigh: {
-    color: '#00E599',
-  },
-  matchTextMedium: {
-    color: '#F59E0B',
-  },
-  cardMetaRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 4,
-  },
-  cardPill: {
-    backgroundColor: '#27272A',
-    color: '#FAFAFA',
-    fontSize: 10,
-    fontWeight: '700',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 4,
-    textTransform: 'uppercase',
-  },
-  cardPillSecondary: {
-    backgroundColor: '#18181B',
-    color: '#A1A1AA',
-    fontSize: 10,
-    fontWeight: '600',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#3F3F46',
-  },
-  cardTarget: {
-    color: '#FF4500',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  error: {
-    color: '#EF4444',
-    fontSize: 12,
-    textAlign: 'center',
-    marginVertical: 8,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingTop: 30,
-  },
-  emptyText: {
-    color: '#A1A1AA',
-    fontSize: 13,
   },
 });

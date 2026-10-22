@@ -3,9 +3,14 @@ import {
   ScrollView, StyleSheet, Text, View, Image, Pressable,
   TextInput, Alert, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
+import { Bookmark, ClipboardList, Check, Sliders, RefreshCw, BookOpen, Dumbbell, Target } from 'lucide-react-native';
+import { exerciseApi } from '../api/exerciseApi';
+import { favoriteApi } from '../api/favoriteApi';
+import { workoutApi } from '../api/workoutApi';
 import { useAuth } from '../context/AuthContext';
-import { API_URL } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import Badge from '../components/common/Badge';
+import { colors, radius, spacing, typography } from '../theme';
 
 const RPE_LEVELS = [
   { value: 4, label: '4 - Vừa sức', desc: 'Moderate' },
@@ -32,18 +37,14 @@ export default function DetailScreen({ route, navigation }) {
   const [loadingSubs, setLoadingSubs] = useState(false);
 
   useEffect(() => {
-    // Tải danh sách bài tập thay thế (FR-007 SRS)
     const fetchSubstitutions = async () => {
       if (!exercise?.id) return;
       setLoadingSubs(true);
       try {
-        const res = await fetch(`${API_URL}/exercises/${exercise.id}/substitutions?top_k=4`);
-        if (res.ok) {
-          const data = await res.json();
-          setSubstitutions(data);
-        }
+        const data = await exerciseApi.getSubstitutions(exercise.id, 4);
+        setSubstitutions(data || []);
       } catch (err) {
-        console.log('Failed to fetch substitutions:', err);
+        console.warn('Failed to fetch substitutions:', err);
       } finally {
         setLoadingSubs(false);
       }
@@ -52,17 +53,13 @@ export default function DetailScreen({ route, navigation }) {
   }, [exercise?.id]);
 
   const handleSaveFavorite = async () => {
+    if (!token) {
+      Alert.alert(t('error'), 'Vui lòng đăng nhập để lưu bài tập');
+      return;
+    }
     setSaving(true);
     try {
-      const res = await fetch(`${API_URL}/favorites`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ exercise_id: exercise.id, exercise_name: exercise.name }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail);
-      }
+      await favoriteApi.addFavorite(exercise.id, exercise.name);
       setSaved(true);
     } catch (err) {
       Alert.alert(t('error'), err.message);
@@ -72,19 +69,18 @@ export default function DetailScreen({ route, navigation }) {
   };
 
   const handleLogWorkout = async () => {
+    if (!token) {
+      Alert.alert(t('error'), 'Vui lòng đăng nhập để ghi nhận bài tập');
+      return;
+    }
     setLoggingWorkout(true);
     try {
-      const res = await fetch(`${API_URL}/workout-logs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          exercise_id: exercise.id,
-          exercise_name: exercise.name,
-          sets: parseInt(sets, 10) || 3,
-          reps: parseInt(reps, 10) || 10,
-        }),
+      await workoutApi.logWorkout({
+        exerciseId: exercise.id,
+        exerciseName: exercise.name,
+        sets: parseInt(sets, 10) || 3,
+        reps: parseInt(reps, 10) || 10,
       });
-      if (!res.ok) throw new Error('Failed to log workout');
       Alert.alert(t('success'), t('workoutLogged'));
       setShowLogForm(false);
     } catch (err) {
@@ -105,7 +101,7 @@ export default function DetailScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      {/* Exercise Image / GIF Display */}
+      {/* Exercise Image / GIF */}
       {exercise.gif_url ? (
         <Image source={{ uri: exercise.gif_url }} style={styles.image} resizeMode="cover" />
       ) : exercise.image ? (
@@ -116,34 +112,53 @@ export default function DetailScreen({ route, navigation }) {
         {lang === 'vi' && exercise.name_vi ? exercise.name_vi : exercise.name}
       </Text>
 
-      {/* Meta Tags */}
+      {/* Meta Badges */}
       <View style={styles.tagRow}>
-        <Text style={styles.tagPrimary}>{exercise.body_part}</Text>
-        <Text style={styles.tagSecondary}>{exercise.equipment}</Text>
-        {exercise.target ? <Text style={styles.tagTarget}>🎯 {exercise.target}</Text> : null}
+        <Badge label={exercise.body_part} variant="primary" />
+        <Badge label={exercise.equipment} variant="default" />
+        {exercise.target ? (
+          <View style={styles.targetBadge}>
+            <Target size={12} color={colors.secondary} />
+            <Text style={styles.targetBadgeText}>{exercise.target}</Text>
+          </View>
+        ) : null}
       </View>
 
       {/* Action Buttons */}
       <View style={styles.actionRow}>
-        <Pressable
+        <TouchableOpacity
           style={[styles.actionButton, saved && styles.actionButtonDisabled]}
           onPress={handleSaveFavorite}
           disabled={saving || saved}
+          activeOpacity={0.8}
         >
-          <Text style={styles.actionButtonText}>
-            {saved ? `★ ${t('saved')}` : saving ? t('saving') : `☆ ${t('saveToFavorites')}`}
-          </Text>
-        </Pressable>
+          <View style={styles.btnContentRow}>
+            <Bookmark size={15} color="#09090B" />
+            <Text style={styles.actionButtonText}>
+              {saved ? t('saved') : saving ? t('saving') : t('saveToFavorites')}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
-        <Pressable style={styles.actionButtonOutline} onPress={() => setShowLogForm(!showLogForm)}>
-          <Text style={styles.actionButtonOutlineText}>{t('logWorkout')}</Text>
-        </Pressable>
+        <TouchableOpacity
+          style={styles.actionButtonOutline}
+          onPress={() => setShowLogForm(!showLogForm)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.btnContentRow}>
+            <ClipboardList size={15} color={colors.text} />
+            <Text style={styles.actionButtonOutlineText}>{t('logWorkout')}</Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
-      {/* Interactive Workout Logging Form (FR-006 & FR-008 SRS) */}
+      {/* Log Form Modal / Inline Box */}
       {showLogForm && (
         <View style={styles.logForm}>
-          <Text style={styles.logHeaderTitle}>📋 {t('logWorkout')}</Text>
+          <View style={styles.headerIconRow}>
+            <ClipboardList size={16} color={colors.primary} />
+            <Text style={styles.logHeaderTitle}>{t('logWorkout')}</Text>
+          </View>
           <View style={styles.logInputsRow}>
             <View style={styles.logCol}>
               <Text style={styles.logLabel}>{t('sets')}</Text>
@@ -175,30 +190,42 @@ export default function DetailScreen({ route, navigation }) {
             ))}
           </View>
 
-          <Pressable style={styles.confirmButton} onPress={handleLogWorkout} disabled={loggingWorkout}>
-            <Text style={styles.confirmButtonText}>
-              {loggingWorkout ? t('saving') : `✓ ${t('confirmLog')}`}
-            </Text>
-          </Pressable>
+          <TouchableOpacity
+            style={styles.confirmButton}
+            onPress={handleLogWorkout}
+            disabled={loggingWorkout}
+            activeOpacity={0.8}
+          >
+            <View style={styles.btnContentRow}>
+              <Check size={16} color="#09090B" />
+              <Text style={styles.confirmButtonText}>
+                {loggingWorkout ? t('saving') : t('confirmLog')}
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
       )}
 
-      {/* AI Form Guidance & Computer Vision Standard Card (Mục 6.2 SRS) */}
+      {/* Form Guidance Card */}
       <View style={styles.aiGuidanceCard}>
         <View style={styles.aiGuidanceHeader}>
-          <Text style={styles.aiGuidanceTitle}>📐 {t('formGuidance')}</Text>
-          <View style={styles.aiGuidanceBadge}>
-            <Text style={styles.aiGuidanceBadgeText}>{t('formAccuracyTarget')}</Text>
+          <View style={styles.headerIconRow}>
+            <Sliders size={15} color={colors.primary} />
+            <Text style={styles.aiGuidanceTitle}>{t('formGuidance')}</Text>
           </View>
+          <Badge label={t('formAccuracyTarget')} variant="success" />
         </View>
         <Text style={styles.aiGuidanceBody}>{getFormGuidanceTip()}</Text>
       </View>
 
-      {/* AI Exercise Substitutions (FR-007 SRS) */}
+      {/* Alternative Substitutions */}
       <View style={styles.substitutionsSection}>
-        <Text style={styles.sectionTitle}>🔄 {t('substitutionsTitle')}</Text>
+        <View style={styles.headerIconRow}>
+          <RefreshCw size={15} color={colors.primary} />
+          <Text style={styles.sectionTitle}>{t('substitutionsTitle')}</Text>
+        </View>
         {loadingSubs ? (
-          <ActivityIndicator color="#FF5A1F" size="small" style={{ marginVertical: 10 }} />
+          <ActivityIndicator color={colors.primary} size="small" style={{ marginVertical: 10 }} />
         ) : substitutions.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subsScroll}>
             {substitutions.map((sub) => (
@@ -212,7 +239,7 @@ export default function DetailScreen({ route, navigation }) {
                   <Image source={{ uri: sub.gif_url || sub.image }} style={styles.subImage} resizeMode="cover" />
                 ) : (
                   <View style={[styles.subImage, styles.subImagePlaceholder]}>
-                    <Text style={{ fontSize: 20 }}>🏋️</Text>
+                    <Dumbbell size={20} color={colors.textMuted} />
                   </View>
                 )}
                 <View style={styles.subContent}>
@@ -230,156 +257,121 @@ export default function DetailScreen({ route, navigation }) {
       </View>
 
       {/* Execution Instructions */}
-      <Text style={styles.sectionTitle}>📖 {t('instructions')}</Text>
+      <View style={styles.headerIconRow}>
+        <BookOpen size={15} color={colors.primary} />
+        <Text style={styles.sectionTitle}>{t('instructions')}</Text>
+      </View>
       <Text style={styles.instructions}>
         {(lang === 'vi' ? exercise.instructions_vi : exercise.instructions_en) || t('noInstructions')}
       </Text>
 
       {/* Secondary Muscles */}
       {exercise.secondary_muscles && exercise.secondary_muscles.length > 0 && (
-        <>
-          <Text style={styles.sectionTitle}>💪 {t('secondaryMuscles')}</Text>
+        <View style={{ marginTop: spacing.md }}>
+          <View style={styles.headerIconRow}>
+            <Dumbbell size={15} color={colors.primary} />
+            <Text style={styles.sectionTitle}>{t('secondaryMuscles')}</Text>
+          </View>
           <Text style={styles.instructions}>{exercise.secondary_muscles.join(', ')}</Text>
-        </>
+        </View>
       )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F1322',
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 40,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.lg, paddingBottom: 60 },
   image: {
     width: '100%',
     aspectRatio: 16 / 10,
-    borderRadius: 14,
-    marginBottom: 16,
-    backgroundColor: '#171D36',
+    borderRadius: radius.lg,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#263056',
+    borderColor: colors.border,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#F5F3ED',
-    marginBottom: 10,
-    letterSpacing: 0.3,
+    ...typography.h2,
+    color: colors.text,
+    marginBottom: spacing.sm,
   },
   tagRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 16,
-  },
-  tagPrimary: {
-    backgroundColor: 'rgba(255, 90, 31, 0.15)',
-    color: '#FF5A1F',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  tagSecondary: {
-    backgroundColor: '#1E2749',
-    color: '#9AA3C7',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  tagTarget: {
-    backgroundColor: '#202A4E',
-    color: '#00E599',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    fontSize: 11,
-    fontWeight: '700',
+    gap: spacing.xs,
+    marginBottom: spacing.lg,
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 14,
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
   actionButton: {
     flex: 1,
-    backgroundColor: '#FF5A1F',
-    paddingVertical: 12,
-    borderRadius: 10,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
     alignItems: 'center',
   },
   actionButtonDisabled: {
-    backgroundColor: '#5A6690',
+    backgroundColor: colors.surfaceElevated,
   },
   actionButtonText: {
-    color: '#12172B',
-    fontWeight: '800',
-    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    ...typography.caption,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   actionButtonOutline: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#FF5A1F',
-    paddingVertical: 12,
-    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 90, 31, 0.08)',
+    backgroundColor: colors.primaryLight,
   },
   actionButtonOutlineText: {
-    color: '#FF5A1F',
-    fontWeight: '800',
-    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '700',
+    ...typography.caption,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   logForm: {
-    backgroundColor: '#161D36',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: '#2E3B68',
+    borderColor: colors.border,
   },
   logHeaderTitle: {
-    color: '#F5F3ED',
-    fontSize: 13,
-    fontWeight: '800',
-    marginBottom: 10,
-    textTransform: 'uppercase',
+    color: colors.text,
+    ...typography.body,
+    fontWeight: '700',
+    marginBottom: spacing.sm,
   },
   logInputsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   logCol: {
     flex: 1,
   },
   logLabel: {
-    color: '#9AA3C7',
-    fontSize: 11,
-    textTransform: 'uppercase',
+    color: colors.textSecondary,
+    ...typography.caption,
     marginBottom: 4,
   },
   logInput: {
     borderWidth: 1,
-    borderColor: '#2E3760',
-    borderRadius: 8,
-    padding: 8,
-    color: '#F5F3ED',
-    backgroundColor: '#0F1322',
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    color: colors.text,
+    backgroundColor: colors.surfaceElevated,
     textAlign: 'center',
     fontWeight: '700',
     fontSize: 14,
@@ -387,134 +379,119 @@ const styles = StyleSheet.create({
   rpeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 12,
+    gap: spacing.xs,
+    marginBottom: spacing.md,
   },
   rpeChip: {
-    backgroundColor: '#1E2749',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
+    backgroundColor: colors.surfaceElevated,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: '#344172',
+    borderColor: colors.border,
   },
   rpeChipActive: {
-    backgroundColor: '#FF5A1F',
-    borderColor: '#FF5A1F',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   rpeChipText: {
-    color: '#9AA3C7',
-    fontSize: 11,
+    color: colors.textSecondary,
+    ...typography.caption,
     fontWeight: '700',
   },
   rpeChipTextActive: {
-    color: '#12172B',
+    color: '#FFFFFF',
   },
   confirmButton: {
-    backgroundColor: '#00E599',
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.sm,
     alignItems: 'center',
   },
   confirmButtonText: {
-    color: '#0F1322',
-    fontWeight: '800',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    ...typography.bodySmall,
   },
   aiGuidanceCard: {
-    backgroundColor: '#131A30',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: 'rgba(0, 229, 153, 0.3)',
+    borderColor: colors.border,
   },
   aiGuidanceHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: spacing.xs,
   },
   aiGuidanceTitle: {
-    color: '#00E599',
-    fontSize: 12,
+    color: colors.primary,
+    ...typography.caption,
     fontWeight: '800',
-    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  aiGuidanceBadge: {
-    backgroundColor: 'rgba(0, 229, 153, 0.12)',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 4,
-  },
-  aiGuidanceBadgeText: {
-    color: '#00E599',
-    fontSize: 10,
-    fontWeight: '700',
-  },
   aiGuidanceBody: {
-    color: '#D5D9EC',
-    fontSize: 12,
+    color: colors.textSecondary,
+    ...typography.bodySmall,
     lineHeight: 18,
   },
   substitutionsSection: {
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   subsScroll: {
     flexDirection: 'row',
-    gap: 10,
+    gap: spacing.sm,
   },
   subCard: {
     width: 140,
-    backgroundColor: '#161D36',
-    borderRadius: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#263056',
+    borderColor: colors.border,
   },
   subImage: {
     width: '100%',
     height: 75,
-    backgroundColor: '#1E2749',
+    backgroundColor: colors.surfaceElevated,
   },
   subImagePlaceholder: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   subContent: {
-    padding: 8,
+    padding: spacing.xs + 2,
   },
   subTitle: {
-    color: '#F5F3ED',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '700',
   },
   subEquipment: {
-    color: '#7E8BB6',
+    color: colors.textSecondary,
     fontSize: 10,
     marginTop: 2,
   },
   noSubsText: {
-    color: '#7E8BB6',
-    fontSize: 12,
+    color: colors.textSecondary,
+    ...typography.bodySmall,
     fontStyle: 'italic',
   },
   sectionTitle: {
-    fontSize: 13,
+    ...typography.body,
     fontWeight: '800',
-    color: '#FF5A1F',
-    marginTop: 10,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    color: colors.primary,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    letterSpacing: 0.5,
   },
   instructions: {
-    fontSize: 14,
+    ...typography.body,
     lineHeight: 22,
-    color: '#D5D9EC',
-    marginBottom: 12,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
   },
 });
